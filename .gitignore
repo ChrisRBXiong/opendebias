@@ -1,0 +1,5 @@
+data
+pretrained
+test.py
+.vscode
+*/*.pyc
