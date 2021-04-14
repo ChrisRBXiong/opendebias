@@ -142,7 +142,7 @@ class FBetaMeasure(Metric):
         # Watch it:
         # The total numbers of true positives under all _predicted_ classes are zeros.
         if true_positives_bins.shape[0] == 0:
-            true_positive_sum = torch.zeros(num_classes, device=device)
+            true_positive_sum = torch.zeros(num_classes, device=predictions.device)
         else:
             true_positive_sum = torch.bincount(
                 true_positives_bins.long(), minlength=num_classes
@@ -154,7 +154,7 @@ class FBetaMeasure(Metric):
         if pred_bins.shape[0] != 0:
             pred_sum = torch.bincount(pred_bins, minlength=num_classes).float()
         else:
-            pred_sum = torch.zeros(num_classes, device=device)
+            pred_sum = torch.zeros(num_classes, device=predictions.device)
 
         gold_labels_bins = gold_labels[mask].long()
         if gold_labels.shape[0] != 0:
@@ -165,7 +165,9 @@ class FBetaMeasure(Metric):
         self._total_sum += mask.sum().to(torch.float)
 
         if is_distributed():
-            true_positive_sum = torch.tensor(true_positive_sum, device=device)
+            true_positive_sum = torch.tensor(true_positive_sum).to(device)
+            pred_sum = torch.tensor(pred_sum).to(device)
+            true_sum = torch.tensor(true_sum).to(device)
             dist.all_reduce(true_positive_sum, op=dist.ReduceOp.SUM)
             dist.all_reduce(pred_sum, op=dist.ReduceOp.SUM)
             dist.all_reduce(true_sum, op=dist.ReduceOp.SUM)
@@ -197,13 +199,13 @@ class FBetaMeasure(Metric):
         if self._labels is not None:
             # Retain only selected labels and order them
             tp_sum = tp_sum[self._labels]
-            pred_sum = pred_sum[self._labels]  # type: ignore
-            true_sum = true_sum[self._labels]  # type: ignore
+            pred_sum = pred_sum[self._labels]
+            true_sum = true_sum[self._labels]
 
         if self._average == "micro":
             tp_sum = tp_sum.sum()
-            pred_sum = pred_sum.sum()  # type: ignore
-            true_sum = true_sum.sum()  # type: ignore
+            pred_sum = pred_sum.sum()
+            true_sum = true_sum.sum()
 
         beta2 = self._beta ** 2
         # Finally, we have all our sufficient statistics.
@@ -218,7 +220,7 @@ class FBetaMeasure(Metric):
             fscore = fscore.mean()
         elif self._average == "weighted":
             weights = true_sum
-            weights_sum = true_sum.sum()  # type: ignore
+            weights_sum = true_sum.sum()
             precision = _prf_divide((weights * precision).sum(), weights_sum)
             recall = _prf_divide((weights * recall).sum(), weights_sum)
             fscore = _prf_divide((weights * fscore).sum(), weights_sum)

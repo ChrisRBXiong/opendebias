@@ -12,12 +12,12 @@ from allennlp.nn import InitializerApplicator
 from allennlp.nn.util import get_text_field_mask, masked_softmax, weighted_sum
 from allennlp.training.metrics import CategoricalAccuracy
 
-from opendebias.models.base_model import BaseModel
+from allennlp.models import Model
 
 
 
-@BaseModel.register("decomposable_attention")
-class DecomposableAttention(BaseModel):
+@Model.register("opendebias_decomposable_attention")
+class DecomposableAttention(Model):
     """
     This `Model` implements the Decomposable Attention model described in [A Decomposable
     Attention Model for Natural Language Inference](
@@ -33,7 +33,7 @@ class DecomposableAttention(BaseModel):
     final entailment decision based on this aggregated comparison.  Each step in this process uses
     a feedforward network to modify the representation.
 
-    Registered as a `BaseModel` with name "decomposable_attention".
+    Registered as a `Model` with name "decomposable_attention".
 
     # Parameters
 
@@ -77,7 +77,7 @@ class DecomposableAttention(BaseModel):
         initializer: InitializerApplicator = InitializerApplicator(),
         **kwargs,
     ) -> None:
-        super().__init__(vocab, forward_keys=["sentence_a", "sentence_b", "label"], **kwargs)
+        super().__init__(vocab, **kwargs)
 
         self._text_field_embedder = text_field_embedder
         self._attend_feedforward = TimeDistributed(attend_feedforward)
@@ -186,8 +186,8 @@ class DecomposableAttention(BaseModel):
         label_probs = torch.nn.functional.softmax(label_logits, dim=-1)
 
         output_dict = {
-            "label_logits": label_logits,
-            "label_probs": label_probs,
+            "logits": label_logits,
+            "probs": label_probs,
             "h2p_attention": h2p_attention,
             "p2h_attention": p2h_attention,
         }

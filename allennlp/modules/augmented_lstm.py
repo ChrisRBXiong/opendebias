@@ -139,7 +139,7 @@ class AugmentedLSTMCell(torch.nn.Module):
             ]
             timestep_output = (
                 highway_gate * timestep_output
-                + (1 - highway_gate) * highway_input_projection  # type: ignore
+                + (1 - highway_gate) * highway_input_projection  # noqa
             )
 
         return timestep_output, memory

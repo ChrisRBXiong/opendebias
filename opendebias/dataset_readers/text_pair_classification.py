@@ -27,11 +27,11 @@ class TextPairClassification(DatasetReader):
     def __init__(
         self,
         dataset_name: str,
-        line_format: str,
-        sentence_a_field: str,
-        sentence_b_field: str,
-        label_field: str,
-        instance_id_field: str,
+        line_format: str = None,
+        sentence_a_field: str = None,
+        sentence_b_field: str = None,
+        label_field: str = None,
+        instance_id_field: str = None,
         index_field: Optional[str] = None,
         skip_index_label: Optional[bool] = False,
         tokenizer: Optional[Tokenizer] = None,
@@ -40,7 +40,7 @@ class TextPairClassification(DatasetReader):
         partial_input: Optional[bool] = False,
         **kwargs,
     ) -> None:
-        super().__init__(manual_distributed_shardlsing=True, **kwargs)
+        super().__init__(manual_distributed_sharding=True, **kwargs)
         self._dataset_name = dataset_name
         self._line_format = line_format
         self._sentence_a_field = sentence_a_field

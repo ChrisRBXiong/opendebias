@@ -112,9 +112,7 @@ def remove_optional(annotation: type):
         return annotation
 
 
-def infer_params(
-    cls: Type[T], constructor: Union[Callable[..., T], Callable[[T], None]] = None
-) -> Dict[str, Any]:
+def infer_params(cls: Type[T], constructor: Callable[..., T] = None) -> Dict[str, Any]:
     if constructor is None:
         constructor = cls.__init__
 
@@ -195,18 +193,16 @@ def create_kwargs(
         # and an __args__ field indicating `(str, int)`. We capture both.
         annotation = remove_optional(param.annotation)
 
-        explicitly_set = param_name in params
         constructed_arg = pop_and_construct_arg(
             cls.__name__, param_name, annotation, param.default, params, **extras
         )
 
-        # If the param wasn't explicitly set in `params` and we just ended up constructing
-        # the default value for the parameter, we can just omit it.
+        # If we just ended up constructing the default value for the parameter, we can just omit it.
         # Leaving it in can cause issues with **kwargs in some corner cases, where you might end up
         # with multiple values for a single parameter (e.g., the default value gives you lazy=False
         # for a dataset reader inside **kwargs, but a particular dataset reader actually hard-codes
         # lazy=True - the superclass sees both lazy=True and lazy=False in its constructor).
-        if explicitly_set or constructed_arg is not param.default:
+        if constructed_arg is not param.default:
             kwargs[param_name] = constructed_arg
 
     if accepts_kwargs:
@@ -302,6 +298,9 @@ def pop_and_construct_arg(
 
     popped_params = params.pop(name, default) if default != _NO_DEFAULT else params.pop(name)
     if popped_params is None:
+        origin = getattr(annotation, "__origin__", None)
+        if origin == Lazy:
+            return Lazy(lambda **kwargs: None)
         return None
 
     return construct_arg(class_name, name, popped_params, annotation, default, **extras)
@@ -451,8 +450,7 @@ def construct_arg(
         )
     elif origin == Lazy:
         if popped_params is default:
-            return default
-
+            return Lazy(lambda **kwargs: default)
         value_cls = args[0]
         subextras = create_extras(value_cls, extras)
 
@@ -496,7 +494,7 @@ def construct_arg(
     else:
         # Pass it on as is and hope for the best.   ¯\_(ツ)_/¯
         if isinstance(popped_params, Params):
-            return popped_params.as_dict()
+            return popped_params.as_dict(quiet=True)
         return popped_params
 
 
@@ -511,7 +509,7 @@ class FromParams:
         cls: Type[T],
         params: Params,
         constructor_to_call: Callable[..., T] = None,
-        constructor_to_inspect: Union[Callable[..., T], Callable[[T], None]] = None,
+        constructor_to_inspect: Callable[..., T] = None,
         **extras,
     ) -> T:
         """
@@ -586,7 +584,7 @@ class FromParams:
                 constructor_to_inspect = subclass.__init__
                 constructor_to_call = subclass  # type: ignore
             else:
-                constructor_to_inspect = cast(Callable[..., T], getattr(subclass, constructor_name))
+                constructor_to_inspect = getattr(subclass, constructor_name)
                 constructor_to_call = constructor_to_inspect
 
             if hasattr(subclass, "from_params"):
@@ -625,7 +623,6 @@ class FromParams:
                 params.assert_empty(cls.__name__)
             else:
                 # This class has a constructor, so create kwargs for it.
-                constructor_to_inspect = cast(Callable[..., T], constructor_to_inspect)
                 kwargs = create_kwargs(constructor_to_inspect, cls, params, **extras)
 
             return constructor_to_call(**kwargs)  # type: ignore

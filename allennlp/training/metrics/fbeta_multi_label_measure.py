@@ -4,6 +4,7 @@ import torch
 import torch.distributed as dist
 from overrides import overrides
 
+from allennlp.common.checks import ConfigurationError
 from allennlp.common.util import is_distributed
 from allennlp.training.metrics import FBetaMeasure
 from allennlp.training.metrics.metric import Metric
@@ -89,8 +90,8 @@ class FBetaMultiLabelMeasure(FBetaMeasure):
         predictions : `torch.Tensor`, required.
             A tensor of predictions of shape (batch_size, ..., num_classes).
         gold_labels : `torch.Tensor`, required.
-            A tensor of boolean labels of shape (batch_size, ..., num_classes). It must be the same
-            shape as the `predictions`.
+            A tensor of integer class label of shape (batch_size, ...). It must be the same
+            shape as the `predictions` tensor without the `num_classes` dimension.
         mask : `torch.BoolTensor`, optional (default = `None`).
             A masking tensor the same size as `gold_labels`.
         """
@@ -99,6 +100,11 @@ class FBetaMultiLabelMeasure(FBetaMeasure):
 
         # Calculate true_positive_sum, true_negative_sum, pred_sum, true_sum
         num_classes = predictions.size(-1)
+        if (gold_labels >= num_classes).any():
+            raise ConfigurationError(
+                "A gold label passed to FBetaMeasure contains "
+                f"an id >= {num_classes}, the number of classes."
+            )
 
         # It means we call this metric at the first time
         # when `self._true_positive_sum` is None.
@@ -109,7 +115,7 @@ class FBetaMultiLabelMeasure(FBetaMeasure):
             self._total_sum = torch.zeros(num_classes, device=predictions.device)
 
         if mask is None:
-            mask = torch.ones_like(gold_labels, dtype=torch.bool)
+            mask = torch.ones_like(gold_labels).bool()
         gold_labels = gold_labels.float()
 
         # If the prediction tensor is all zeros, the record is not classified to any of the labels.
@@ -150,9 +156,9 @@ class FBetaMultiLabelMeasure(FBetaMeasure):
         self._total_sum += mask.expand_as(gold_labels).sum().to(torch.float)
 
         if is_distributed():
-            true_positive_sum = torch.tensor(true_positive_sum, device=device)
-            pred_sum = torch.tensor(pred_sum, device=device)
-            true_sum = torch.tensor(true_sum, device=device)
+            true_positive_sum = torch.tensor(true_positive_sum).to(device)
+            pred_sum = torch.tensor(pred_sum).to(device)
+            true_sum = torch.tensor(true_sum).to(device)
             dist.all_reduce(true_positive_sum, op=dist.ReduceOp.SUM)
             dist.all_reduce(pred_sum, op=dist.ReduceOp.SUM)
             dist.all_reduce(true_sum, op=dist.ReduceOp.SUM)

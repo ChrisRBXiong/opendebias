@@ -2,4 +2,8 @@ data
 pretrained
 test.py
 .vscode
+**/*.pyc
 */*.pyc
+configs
+histories
+scripts

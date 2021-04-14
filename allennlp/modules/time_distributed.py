@@ -48,7 +48,6 @@ class TimeDistributed(torch.nn.Module):
                 value = self._reshape_tensor(value)
 
             reshaped_kwargs[key] = value
-
         reshaped_outputs = self._module(*reshaped_inputs, **reshaped_kwargs)
 
         if some_input is None:

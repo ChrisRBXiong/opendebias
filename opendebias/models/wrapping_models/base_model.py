@@ -10,7 +10,6 @@ from allennlp.modules import (FeedForward, Seq2SeqEncoder, Seq2VecEncoder,
 from allennlp.nn import InitializerApplicator, util
 from allennlp.nn.util import get_text_field_mask
 from allennlp.training.metrics import Metric
-from opendebias.models.base_model import BaseModel
 from opendebias.modules.losses import EBDLoss
 from overrides import overrides
 
@@ -19,13 +18,14 @@ class EBDModelBase(Model):
     def __init__(
         self, 
         vocab: Vocabulary,
-        bias_only_model: BaseModel,
-        main_model: BaseModel,
+        bias_only_model: Model,
+        main_model: Model,
         ebd_loss: EBDLoss,
         label_namespace: str = "labels",
         namespace: str = "tokens",
         initializer: InitializerApplicator = InitializerApplicator(),
-        ensemble_metrics: Optional[Dict[str, Metric]] = None
+        metrics: Optional[Dict[str, Metric]] = None,
+        ret_hidden = False,
         **kwargs,
     ) -> None:
 
@@ -33,28 +33,27 @@ class EBDModelBase(Model):
         self._main_model = main_model
         self._bias_only_model = bias_only_model
         self._loss = ebd_loss
-        self._ensemble_metrics = [] if ensemble_metrics is None else ensemble_metrics
-        self._main_model_input_keys = main_model.get_forward_keys()
-        self._bias_only_model_input_keys = bias_only_model.get_forward_keys()
+
+        self._main_metrics = {} if metrics is None else metrics
+        self._bias_only_metrics = {} if metrics is None else metrics
+        self._ensemble_metrics = {} if metrics is None else metrics
+
         self._label_namespace = label_namespace
         self._namespace = namespace
+        self._ret_hidden = ret_hidden
         initializer(self)
 
-
-    def _pack_input(self, keys: List[str], input: Dict[str, Any], main_mdoel_output: Dict[str, Any]) -> Dict[str, Any]:
-        input_dict = {}
-        for key in keys:
-            if key.startswith('metadata.'):
-                input_dict[key[9:]] = input['metadata'][0][key[9:]]
-            elif key.startswith('main_model.'):
-                input_dict[key[11:]] = main_mdoel_output[key[11:]]
-            else:
-                input_dict[key] = input[key]
-        return input_dict
 
     def interaction(self,
                     **kw_input) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         raise NotImplementedError()
+
+    def forward_main_model(
+        self,
+        **kw_input,
+    ) -> Dict[str, torch.Tensor]:
+        main_model_output = self._main_model(**kw_input)
+        return main_model_output
         
 
     @overrides
@@ -62,34 +61,44 @@ class EBDModelBase(Model):
         self, 
         **kw_input,
     ) -> Dict[str, torch.Tensor]:
-
         main_model_output, bias_only_model_output = self.interaction(**kw_input)
-        ensemble_output = self.loss(main_model_output, bias_only_model_output, kw_input.get("label", None))
-
-        # main_model_output = self._main_model(**self._pack_input(self._main_model_input_keys, kw_input))
-        # bias_only_model_output = self._bias_only_model(**self._pack_input(self._bias_only_model_input_keys, kw_input))
-        
+        ensemble_output = self._loss(main_model_output, bias_only_model_output, kw_input.get("label", None))
         output_dict: Dict[str, Any] = {}
         # save output
         to_save_fields = ["probs", "logits", "loss"]
-        for field in main_model_output:
+        for field in to_save_fields:
             if field in main_model_output:
                 output_dict[f"main_{field}"] = main_model_output[field]
-        for field in bias_only_model_output:
+
             if field in bias_only_model_output:
                 output_dict[f"bias_only_{field}"] = bias_only_model_output[field]
-        for field in ensemble_output:
+
             if field in ensemble_output and field != 'loss':
                 output_dict[f"ensemble_{field}"] = ensemble_output[field]
+
+        if self._ret_hidden:
+            output_dict[f"hidden"] = main_model_output["hidden"]
         
         if "loss" in ensemble_output:
             output_dict["loss"] = ensemble_output["loss"]
-        if "label" in kwargs:
+        if "label" in kw_input:
+            for metric in self._main_metrics.values():
+                metric(main_model_output["logits"], kw_input["label"])
+            for metric in self._bias_only_metrics.values():
+                if "logits" in bias_only_model_output:
+                    metric(bias_only_model_output["logits"], kw_input["label"])
             for metric in self._ensemble_metrics.values():
-                metric(ensemble_output["logits"], kwargs["label"])
+                if "logits" in ensemble_output:
+                    metric(ensemble_output["logits"], kw_input["label"])
         
         return output_dict
 
     def get_metrics(self, reset: bool = False) -> Dict[str, float]:
-        metrics = {key, metric.get_metric(reset) for key, metrc in self._ensemble_metrics.items()}
+        metrics = {}
+        for key, metric in self._main_metrics.items():
+            metrics[f'{key}'] = metric.get_metric(reset)
+        for key, metric in self._bias_only_metrics.items():
+            metrics[f'bias_only_{key}'] = metric.get_metric(reset)
+        for key, metric in self._ensemble_metrics.items():
+            metrics[f'ensemble_{key}'] = metric.get_metric(reset)
         return metrics

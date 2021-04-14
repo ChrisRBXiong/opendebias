@@ -11,11 +11,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
 import math
 import numpy
 import torch
-import torch.distributed as dist
-from torch.distributed import ReduceOp
 
 from allennlp.common.checks import ConfigurationError
-from allennlp.common.util import int_to_device, is_distributed
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +39,8 @@ def move_to_device(obj, cuda_device: Union[torch.device, int]):
     Given a structure (possibly) containing Tensors on the CPU,
     move all the Tensors to the specified GPU (or do nothing, if they should be on the CPU).
     """
+    from allennlp.common.util import int_to_device
+
     cuda_device = int_to_device(cuda_device)
 
     if cuda_device == torch.device("cpu") or not has_tensor(obj):
@@ -1231,11 +1230,9 @@ def batched_index_select(
 
     An example use case of this function is looking up the start and end indices of spans in a
     sequence tensor. This is used in the
-    [CoreferenceResolver](https://docs.allennlp.org/models/master/models/coref/models/coref/)
-    model to select contextual word representations corresponding to the start and end indices of
-    mentions.
-
-    The key reason this can't be done with basic torch functions is that we want to be able to use look-up
+    [CoreferenceResolver](../models/coreference_resolution/coref.md). Model to select
+    contextual word representations corresponding to the start and end indices of mentions. The key
+    reason this can't be done with basic torch functions is that we want to be able to use look-up
     tensors with an arbitrary number of dimensions (for example, in the coref model, we don't know
     a-priori how many spans we are looking up).
 
@@ -1549,11 +1546,12 @@ def add_sentence_boundary_token_ids(
         The new mask for the tensor, taking into account the appended tokens
         marking the beginning and end of the sentence.
     """
+    # TODO: matthewp, profile this transfer
     sequence_lengths = mask.sum(dim=1).detach().cpu().numpy()
     tensor_shape = list(tensor.data.shape)
     new_shape = list(tensor_shape)
     new_shape[1] = tensor_shape[1] + 2
-    tensor_with_boundary_tokens = tensor.new_zeros(*new_shape, device=tensor.device)
+    tensor_with_boundary_tokens = tensor.new_zeros(*new_shape)
     if len(tensor_shape) == 2:
         tensor_with_boundary_tokens[:, 1:-1] = tensor
         tensor_with_boundary_tokens[:, 0] = sentence_begin_token
@@ -1562,8 +1560,6 @@ def add_sentence_boundary_token_ids(
         new_mask = tensor_with_boundary_tokens != 0
     elif len(tensor_shape) == 3:
         tensor_with_boundary_tokens[:, 1:-1, :] = tensor
-        sentence_begin_token = sentence_begin_token.detach().to(tensor.device)
-        sentence_end_token = sentence_end_token.detach().to(tensor.device)
         for i, j in enumerate(sequence_lengths):
             tensor_with_boundary_tokens[i, 0, :] = sentence_begin_token
             tensor_with_boundary_tokens[i, j + 1, :] = sentence_end_token
@@ -1603,6 +1599,7 @@ def remove_sentence_boundaries(
     new_mask : `torch.BoolTensor`
         The new mask for the tensor of shape `(batch_size, timesteps - 2)`.
     """
+    # TODO: matthewp, profile this transfer
     sequence_lengths = mask.sum(dim=1).detach().cpu().numpy()
     tensor_shape = list(tensor.data.shape)
     new_shape = list(tensor_shape)
@@ -1744,20 +1741,6 @@ def inspect_parameters(module: torch.nn.Module, quiet: bool = False) -> Dict[str
     return results
 
 
-def find_text_field_embedder(model: torch.nn.Module) -> torch.nn.Module:
-    """
-    Takes a `Model` and returns the `Module` that is a `TextFieldEmbedder`.  We return just the
-    first one, as it's very rare to have more than one.  If there isn't a `TextFieldEmbedder` in the
-    given `Model`, we raise a `ValueError`.
-    """
-    from allennlp.modules.text_field_embedders.text_field_embedder import TextFieldEmbedder
-
-    for module in model.modules():
-        if isinstance(module, TextFieldEmbedder):
-            return module
-    raise ValueError("Couldn't find TextFieldEmbedder!")
-
-
 def find_embedding_layer(model: torch.nn.Module) -> torch.nn.Module:
     """
     Takes a model (typically an AllenNLP `Model`, but this works for any `torch.nn.Module`) and
@@ -1768,25 +1751,37 @@ def find_embedding_layer(model: torch.nn.Module) -> torch.nn.Module:
     """
     # We'll look for a few special cases in a first pass, then fall back to just finding a
     # TextFieldEmbedder in a second pass if we didn't find a special case.
-    from transformers.models.gpt2.modeling_gpt2 import GPT2Model
-    from transformers.models.bert.modeling_bert import BertEmbeddings
-    from transformers.models.albert.modeling_albert import AlbertEmbeddings
-    from transformers.models.roberta.modeling_roberta import RobertaEmbeddings
+    from transformers.modeling_gpt2 import GPT2Model
+    from transformers.modeling_bert import BertEmbeddings
     from allennlp.modules.text_field_embedders.text_field_embedder import TextFieldEmbedder
     from allennlp.modules.text_field_embedders.basic_text_field_embedder import (
         BasicTextFieldEmbedder,
     )
     from allennlp.modules.token_embedders.embedding import Embedding
 
+    # The special case only works if we don't have mismatched embedding.  What we essentially want
+    # to do is grab a transformer's wordpiece embedding layer, because using that is a lot easier
+    # for something like hotflip than running a network to embed all tokens in a vocabulary.  If
+    # you've used a mismatched embedder, though, your input tokens are actually *words*, so that's
+    # what we'll be visualizing and attacking, even though you're modeling things at the wordpiece
+    # level.  In this case, we need to return gradients and things at the word level, so we can't
+    # use our shortcut of just returning the wordpiece embedding.
+    mismatched = False
     for module in model.modules():
-        if isinstance(module, BertEmbeddings):
-            return module.word_embeddings
-        if isinstance(module, RobertaEmbeddings):
-            return module.word_embeddings
-        if isinstance(module, AlbertEmbeddings):
-            return module.word_embeddings
-        if isinstance(module, GPT2Model):
-            return module.wte
+        if "Mismatched" in module.__class__.__name__:
+            # We don't currently have a good way to check whether an embedder is mismatched, and it
+            # doesn't seem like it's worth it to try to add an API call for this somewhere,
+            # especially as we can't really call it here in a type-safe way, anyway, as we're
+            # iterating over plain pytorch Modules.  This check should work for now (v1.0), but it's
+            # possible that some class gets added later that will require this check to change.
+            mismatched = True
+
+    if not mismatched:
+        for module in model.modules():
+            if isinstance(module, BertEmbeddings):
+                return module.word_embeddings
+            if isinstance(module, GPT2Model):
+                return module.wte
 
     for module in model.modules():
         if isinstance(module, TextFieldEmbedder):
@@ -1805,33 +1800,6 @@ def find_embedding_layer(model: torch.nn.Module) -> torch.nn.Module:
                             return embedder
             return module
     raise RuntimeError("No embedding module found!")
-
-
-def get_token_offsets_from_text_field_inputs(
-    text_field_inputs: List[Any],
-) -> Optional[torch.Tensor]:
-    """
-    Given a list of inputs to a TextFieldEmbedder, tries to find token offsets from those inputs, if
-    there are any.  You will have token offsets if you are using a mismatched token embedder; if
-    you're not, the return value from this function should be None.  This function is intended to be
-    called from a `forward_hook` attached to a `TextFieldEmbedder`, so the inputs are formatted just
-    as a list.
-
-    It's possible in theory that you could have multiple offsets as inputs to a single call to a
-    `TextFieldEmbedder`, but that's an extremely rare use case (I can't really imagine anyone
-    wanting to do that).  In that case, we'll only return the first one.  If you need different
-    behavior for your model, open an issue on github describing what you're doing.
-    """
-    for input_index, text_field_input in enumerate(text_field_inputs):
-        if not isinstance(text_field_input, dict):
-            continue
-        for input_value in text_field_input.values():
-            if not isinstance(input_value, dict):
-                continue
-            for embedder_arg_name, embedder_arg_value in input_value.items():
-                if embedder_arg_name == "offsets":
-                    return embedder_arg_value
-    return None
 
 
 def extend_layer(layer: torch.nn.Module, new_dim: int) -> None:
@@ -2023,35 +1991,3 @@ def tiny_value_of_dtype(dtype: torch.dtype):
         return 1e-4
     else:
         raise TypeError("Does not support dtype " + str(dtype))
-
-
-_V = TypeVar("_V", int, float)
-
-
-def dist_reduce(value: _V, reduce_op: ReduceOp, **kwargs) -> _V:
-    """
-    Reduces the given `value` across all distributed worker nodes according the given
-    reduction operation.
-
-    If called outside of a distributed context, it will just return `value`.
-
-    # Parameters
-
-    value : `_V`
-        The value to reduce across distributed nodes.
-    reduce_op : `ReduceOp`
-        The reduction operation to use.
-    **kwargs : `Any`
-        Additional arguments used to construct the tensor that will wrap `value`.
-
-    # Returns
-
-    `_V`
-        The final value.
-    """
-    if not is_distributed():
-        return value
-    device = int_to_device(-1 if dist.get_backend() != "nccl" else torch.cuda.current_device())
-    value_tensor = torch.tensor(value, device=device, **kwargs)
-    dist.all_reduce(value_tensor, op=reduce_op)
-    return value_tensor.item()  # type: ignore[return-value]

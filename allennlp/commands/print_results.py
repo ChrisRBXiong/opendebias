@@ -17,8 +17,6 @@ logger = logging.getLogger(__name__)
 
 @Subcommand.register("print-results")
 class PrintResults(Subcommand):
-    requires_plugins: bool = False
-
     @overrides
     def add_subparser(self, parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
 

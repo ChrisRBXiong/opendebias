@@ -64,11 +64,16 @@ class BasicClassifier(Model):
 
         super().__init__(vocab, **kwargs)
         self._text_field_embedder = text_field_embedder
-        self._seq2seq_encoder = seq2seq_encoder
+
+        if seq2seq_encoder:
+            self._seq2seq_encoder = seq2seq_encoder
+        else:
+            self._seq2seq_encoder = None
+
         self._seq2vec_encoder = seq2vec_encoder
         self._feedforward = feedforward
         if feedforward is not None:
-            self._classifier_input_dim = feedforward.get_output_dim()
+            self._classifier_input_dim = self._feedforward.get_output_dim()
         else:
             self._classifier_input_dim = self._seq2vec_encoder.get_output_dim()
 
@@ -88,8 +93,9 @@ class BasicClassifier(Model):
         self._loss = torch.nn.CrossEntropyLoss()
         initializer(self)
 
+
     def forward(  # type: ignore
-        self, tokens: TextFieldTensors, label: torch.IntTensor = None
+        self, tokens: TextFieldTensors, label: torch.IntTensor = None, metadata = None, index=None,
     ) -> Dict[str, torch.Tensor]:
 
         """
@@ -130,7 +136,7 @@ class BasicClassifier(Model):
         logits = self._classification_layer(embedded_text)
         probs = torch.nn.functional.softmax(logits, dim=-1)
 
-        output_dict = {"logits": logits, "probs": probs}
+        output_dict = {"logits": logits, "probs": probs, "hidden": embedded_text}
         output_dict["token_ids"] = util.get_token_ids_from_text_field_tensors(tokens)
         if label is not None:
             loss = self._loss(logits, label.long().view(-1))

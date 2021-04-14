@@ -1,12 +1,10 @@
-from typing import List, Iterator, Dict, Tuple, Any, Type, Union, Optional
-import logging
+from typing import List, Iterator, Dict, Tuple, Any, Type, Union
 import json
 import re
 from contextlib import contextmanager
 from pathlib import Path
 
 import numpy
-import torch
 from torch.utils.hooks import RemovableHandle
 from torch import Tensor
 from torch import backends
@@ -18,8 +16,6 @@ from allennlp.data.batch import Batch
 from allennlp.models import Model
 from allennlp.models.archival import Archive, load_archive
 from allennlp.nn import util
-
-logger = logging.getLogger(__name__)
 
 
 class Predictor(Registrable):
@@ -34,7 +30,6 @@ class Predictor(Registrable):
         self._model = model
         self._dataset_reader = dataset_reader
         self.cuda_device = next(self._model.named_parameters())[1].get_device()
-        self._token_offsets: List[Tensor] = []
 
     def load_line(self, line: str) -> JsonDict:
         """
@@ -135,88 +130,24 @@ class Predictor(Registrable):
 
         return grad_dict, outputs
 
-    def get_interpretable_layer(self) -> torch.nn.Module:
-        """
-        Returns the input/embedding layer of the model.
-        If the predictor wraps around a non-AllenNLP model,
-        this function should be overridden to specify the correct input/embedding layer.
-        For the cases where the input layer _is_ an embedding layer, this should be the
-        layer 0 of the embedder.
-        """
-        try:
-            return util.find_embedding_layer(self._model)
-        except RuntimeError:
-            raise RuntimeError(
-                "If the model does not use `TextFieldEmbedder`, please override "
-                "`get_interpretable_layer` in your predictor to specify the embedding layer."
-            )
-
-    def get_interpretable_text_field_embedder(self) -> torch.nn.Module:
-        """
-        Returns the first `TextFieldEmbedder` of the model.
-        If the predictor wraps around a non-AllenNLP model,
-        this function should be overridden to specify the correct embedder.
-        """
-        try:
-            return util.find_text_field_embedder(self._model)
-        except RuntimeError:
-            raise RuntimeError(
-                "If the model does not use `TextFieldEmbedder`, please override "
-                "`get_interpretable_text_field_embedder` in your predictor to specify "
-                "the embedding layer."
-            )
-
     def _register_embedding_gradient_hooks(self, embedding_gradients):
         """
-        Registers a backward hook on the embedding layer of the model.  Used to save the gradients
-        of the embeddings for use in get_gradients()
+        Registers a backward hook on the
+        [`BasicTextFieldEmbedder`](../modules/text_field_embedders/basic_text_field_embedder.md)
+        class. Used to save the gradients of the embeddings for use in get_gradients()
 
         When there are multiple inputs (e.g., a passage and question), the hook
         will be called multiple times. We append all the embeddings gradients
         to a list.
-
-        We additionally add a hook on the _forward_ pass of the model's `TextFieldEmbedder` to save
-        token offsets, if there are any.  Having token offsets means that you're using a mismatched
-        token indexer, so we need to aggregate the gradients across wordpieces in a token.  We do
-        that with a simple sum.
         """
 
         def hook_layers(module, grad_in, grad_out):
-            grads = grad_out[0]
-            if self._token_offsets:
-                # If you have a mismatched indexer with multiple TextFields, it's quite possible
-                # that the order we deal with the gradients is wrong.  We'll just take items from
-                # the list one at a time, and try to aggregate the gradients.  If we got the order
-                # wrong, we should crash, so you'll know about it.  If you get an error because of
-                # that, open an issue on github, and we'll see what we can do.  The intersection of
-                # multiple TextFields and mismatched indexers is pretty small (currently empty, that
-                # I know of), so we'll ignore this corner case until it's needed.
-                offsets = self._token_offsets.pop(0)
-                span_grads, span_mask = util.batched_span_select(grads.contiguous(), offsets)
-                span_mask = span_mask.unsqueeze(-1)
-                span_grads *= span_mask  # zero out paddings
+            embedding_gradients.append(grad_out[0])
 
-                span_grads_sum = span_grads.sum(2)
-                span_grads_len = span_mask.sum(2)
-                # Shape: (batch_size, num_orig_tokens, embedding_size)
-                grads = span_grads_sum / torch.clamp_min(span_grads_len, 1)
-
-                # All the places where the span length is zero, write in zeros.
-                grads[(span_grads_len == 0).expand(grads.shape)] = 0
-
-            embedding_gradients.append(grads)
-
-        def get_token_offsets(module, inputs, outputs):
-            offsets = util.get_token_offsets_from_text_field_inputs(inputs)
-            if offsets is not None:
-                self._token_offsets.append(offsets)
-
-        hooks = []
-        text_field_embedder = self.get_interpretable_text_field_embedder()
-        hooks.append(text_field_embedder.register_forward_hook(get_token_offsets))
-        embedding_layer = self.get_interpretable_layer()
-        hooks.append(embedding_layer.register_backward_hook(hook_layers))
-        return hooks
+        backward_hooks = []
+        embedding_layer = util.find_embedding_layer(self._model)
+        backward_hooks.append(embedding_layer.register_backward_hook(hook_layers))
+        return backward_hooks
 
     @contextmanager
     def capture_model_internals(self, module_regex: str = ".*") -> Iterator[dict]:
@@ -364,7 +295,6 @@ class Predictor(Registrable):
         predictor_name: str = None,
         dataset_reader_to_load: str = "validation",
         frozen: bool = True,
-        extra_args: Optional[Dict[str, Any]] = None,
     ) -> "Predictor":
         """
         Instantiate a `Predictor` from an [`Archive`](../models/archival.md);
@@ -386,16 +316,14 @@ class Predictor(Registrable):
             Predictor.by_name(predictor_name) if predictor_name is not None else cls  # type: ignore
         )
 
-        if dataset_reader_to_load == "validation":
-            dataset_reader = archive.validation_dataset_reader
+        if dataset_reader_to_load == "validation" and "validation_dataset_reader" in config:
+            dataset_reader_params = config["validation_dataset_reader"]
         else:
-            dataset_reader = archive.dataset_reader
+            dataset_reader_params = config["dataset_reader"]
+        dataset_reader = DatasetReader.from_params(dataset_reader_params)
 
         model = archive.model
         if frozen:
             model.eval()
 
-        if extra_args is None:
-            extra_args = {}
-
-        return predictor_class(model, dataset_reader, **extra_args)
+        return predictor_class(model, dataset_reader)

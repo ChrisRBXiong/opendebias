@@ -88,7 +88,7 @@ class TensorboardWriter(FromParams):
 
         self._cumulative_batch_group_size = 0
         self._batches_this_epoch = 0
-        self._histogram_parameters: Optional[Set[str]] = None
+        self._histogram_parameters: Set[str] = None
 
     @staticmethod
     def _item(value: Any):
@@ -98,15 +98,15 @@ class TensorboardWriter(FromParams):
             val = value
         return val
 
-    def log_memory_usage(self, cpu_memory_usage: Dict[int, int], gpu_memory_usage: Dict[int, int]):
+    def log_memory_usage(
+        self, cpu_memory_usage: Dict[int, float], gpu_memory_usage: Dict[int, int]
+    ):
         cpu_memory_usage_total = 0.0
-        for worker, mem_bytes in cpu_memory_usage.items():
-            memory = mem_bytes / (1024 * 1024)
+        for worker, memory in cpu_memory_usage.items():
             self.add_train_scalar(f"memory_usage/worker_{worker}_cpu", memory)
             cpu_memory_usage_total += memory
         self.add_train_scalar("memory_usage/cpu", cpu_memory_usage_total)
-        for gpu, mem_bytes in gpu_memory_usage.items():
-            memory = mem_bytes / (1024 * 1024)
+        for gpu, memory in gpu_memory_usage.items():
             self.add_train_scalar(f"memory_usage/gpu_{gpu}", memory)
 
     def log_batch(
@@ -126,7 +126,6 @@ class TensorboardWriter(FromParams):
             self.log_metrics({"epoch_metrics/" + k: v for k, v in metrics.items()})
 
         if self.should_log_histograms_this_batch():
-            assert param_updates is not None
             self.log_histograms(model)
             self.log_gradient_updates(model, param_updates)
 
@@ -134,7 +133,7 @@ class TensorboardWriter(FromParams):
             # We're assuming here that `log_batch` will get called every batch, and only every
             # batch.  This is true with our current usage of this code (version 1.0); if that
             # assumption becomes wrong, this code will break.
-            batch_group_size = sum(training_util.get_batch_size(batch) for batch in batch_group)  # type: ignore
+            batch_group_size = sum(training_util.get_batch_size(batch) for batch in batch_group)
             self._batches_this_epoch += 1
             self._cumulative_batch_group_size += batch_group_size
 
@@ -149,39 +148,32 @@ class TensorboardWriter(FromParams):
         self._batches_this_epoch = 0
 
     def should_log_this_batch(self) -> bool:
-        assert self.get_batch_num_total is not None
         return self.get_batch_num_total() % self._summary_interval == 0
 
     def should_log_histograms_this_batch(self) -> bool:
-        assert self.get_batch_num_total is not None
         return (
             self._histogram_interval is not None
             and self.get_batch_num_total() % self._histogram_interval == 0
         )
 
     def add_train_scalar(self, name: str, value: float, timestep: int = None) -> None:
-        assert self.get_batch_num_total is not None
         timestep = timestep or self.get_batch_num_total()
         # get the scalar
         if self._train_log is not None:
             self._train_log.add_scalar(name, self._item(value), timestep)
 
     def add_train_histogram(self, name: str, values: torch.Tensor) -> None:
-        assert self.get_batch_num_total is not None
         if self._train_log is not None:
             if isinstance(values, torch.Tensor):
                 values_to_write = values.cpu().data.numpy().flatten()
                 self._train_log.add_histogram(name, values_to_write, self.get_batch_num_total())
 
     def add_validation_scalar(self, name: str, value: float, timestep: int = None) -> None:
-        assert self.get_batch_num_total is not None
         timestep = timestep or self.get_batch_num_total()
         if self._validation_log is not None:
             self._validation_log.add_scalar(name, self._item(value), timestep)
 
-    def log_parameter_and_gradient_statistics(
-        self, model: Model, batch_grad_norm: float = None
-    ) -> None:
+    def log_parameter_and_gradient_statistics(self, model: Model, batch_grad_norm: float) -> None:
         """
         Send the mean and std of all parameters and gradients to tensorboard, as well
         as logging the average gradient norm.
@@ -190,9 +182,9 @@ class TensorboardWriter(FromParams):
             # Log parameter values to Tensorboard
             for name, param in model.named_parameters():
                 if param.data.numel() > 0:
-                    self.add_train_scalar("parameter_mean/" + name, param.data.mean().item())
+                    self.add_train_scalar("parameter_mean/" + name, param.data.mean())
                 if param.data.numel() > 1:
-                    self.add_train_scalar("parameter_std/" + name, param.data.std().item())
+                    self.add_train_scalar("parameter_std/" + name, param.data.std())
                 if param.grad is not None:
                     if param.grad.is_sparse:
 
@@ -212,7 +204,7 @@ class TensorboardWriter(FromParams):
             if batch_grad_norm is not None:
                 self.add_train_scalar("gradient_norm", batch_grad_norm)
 
-    def log_learning_rates(self, model: Model, optimizer: Optimizer):
+    def log_learning_rates(self, model: Model, optimizer: torch.optim.Optimizer):
         """
         Send current parameter specific learning rates to tensorboard
         """

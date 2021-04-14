@@ -114,13 +114,12 @@ class Embedding(TokenEmbedder):
                 "Embedding must be constructed with either num_embeddings or a vocabulary."
             )
 
-        _vocab_namespace: Optional[str] = vocab_namespace
         if num_embeddings is None:
-            num_embeddings = vocab.get_vocab_size(_vocab_namespace)  # type: ignore
+            num_embeddings = vocab.get_vocab_size(vocab_namespace)
         else:
             # If num_embeddings is present, set default namespace to None so that extend_vocab
             # call doesn't misinterpret that some namespace was originally used.
-            _vocab_namespace = None  # type: ignore
+            vocab_namespace = None
 
         self.num_embeddings = num_embeddings
         self.padding_index = padding_index
@@ -128,7 +127,7 @@ class Embedding(TokenEmbedder):
         self.norm_type = norm_type
         self.scale_grad_by_freq = scale_grad_by_freq
         self.sparse = sparse
-        self._vocab_namespace = _vocab_namespace
+        self._vocab_namespace = vocab_namespace
         self._pretrained_file = pretrained_file
 
         self.output_dim = projection_dim or embedding_dim
@@ -153,7 +152,7 @@ class Embedding(TokenEmbedder):
             # extend_vocab method, which relies on the value of vocab_namespace being None
             # to infer at what stage the embedding has been constructed. Phew.
             weight = _read_pretrained_embeddings_file(
-                pretrained_file, embedding_dim, vocab, vocab_namespace
+                pretrained_file, embedding_dim, vocab, vocab_namespace or "tokens"
             )
             self.weight = torch.nn.Parameter(weight, requires_grad=trainable)
 
@@ -253,7 +252,7 @@ class Embedding(TokenEmbedder):
         vocab_namespace = vocab_namespace or self._vocab_namespace
         if not vocab_namespace:
             # It's not safe to default to "tokens" or any other namespace.
-            logger.info(
+            logging.info(
                 "Loading a model trained before embedding extension was implemented; "
                 "pass an explicit vocab namespace if you want to extend the vocabulary."
             )
@@ -285,18 +284,19 @@ class Embedding(TokenEmbedder):
         elif is_url_or_existing_file(self._pretrained_file):
             extension_pretrained_file = self._pretrained_file
         # Case 4: no file is available, hope that pretrained embeddings weren't used in the first place and warn
-        elif self._pretrained_file is not None:
-            # Warn here instead of an exception to allow a fine-tuning even without the original pretrained_file
-            logger.warning(
-                f"Embedding at model_path, {model_path} cannot locate the pretrained_file. "
-                f"Originally pretrained_file was at '{self._pretrained_file}'."
-            )
         else:
-            # When loading a model from archive there is no way to distinguish between whether a pretrained-file
-            # was or wasn't used during the original training. So we leave an info here.
-            logger.info(
-                "If you are fine-tuning and want to use a pretrained_file for "
-                "embedding extension, please pass the mapping by --embedding-sources argument."
+            extra_info = (
+                f"Originally pretrained_file was at " f"{self._pretrained_file}. "
+                if self._pretrained_file
+                else ""
+            )
+            # It's better to warn here and not give error because there is no way to distinguish between
+            # whether pretrained-file wasn't used during training or user forgot to pass / passed incorrect
+            # mapping. Raising an error would prevent fine-tuning in the former case.
+            logging.warning(
+                f"Embedding at model_path, {model_path} cannot locate the pretrained_file. "
+                f"{extra_info} If you are fine-tuning and want to use using pretrained_file for "
+                f"embedding extension, please pass the mapping by --embedding-sources argument."
             )
 
         embedding_dim = self.weight.data.shape[-1]

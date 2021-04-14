@@ -33,13 +33,11 @@ from zipfile import ZipFile, is_zipfile
 import tarfile
 import shutil
 import time
-import warnings
 
 import boto3
 import botocore
 from botocore.exceptions import ClientError, EndpointConnectionError
-from filelock import FileLock as _FileLock
-from overrides import overrides
+from filelock import FileLock
 import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError
@@ -63,46 +61,6 @@ if os.path.exists(DEPRECATED_CACHE_DIRECTORY):
         f"Deprecated cache directory found ({DEPRECATED_CACHE_DIRECTORY}).  "
         f"Please remove this directory from your system to free up space."
     )
-
-
-class FileLock(_FileLock):
-    """
-    This is just a subclass of the `FileLock` class from the `filelock` library, except that
-    it adds an additional argument to the `__init__` method: `read_only_ok`.
-
-    By default this flag is `False`, which an exception will be thrown when a lock
-    can't be acquired due to lack of write permissions.
-    But if this flag is set to `True`, a warning will be emitted instead of an error when
-    the lock already exists but the lock can't be acquired because write access is blocked.
-    """
-
-    def __init__(
-        self, lock_file: Union[str, PathLike], timeout=-1, read_only_ok: bool = False
-    ) -> None:
-        super().__init__(str(lock_file), timeout=timeout)
-        self._read_only_ok = read_only_ok
-
-    @overrides
-    def acquire(self, timeout=None, poll_interval=0.05):
-        try:
-            super().acquire(timeout=timeout, poll_intervall=poll_interval)
-        except OSError as err:
-            # OSError could be a lot of different things, but what we're looking
-            # for in particular are permission errors, such as:
-            #  - errno 1  - EPERM  - "Operation not permitted"
-            #  - errno 13 - EACCES - "Permission denied"
-            #  - errno 30 - EROFS  - "Read-only file system"
-            if err.errno not in (1, 13, 30):
-                raise
-
-            if os.path.isfile(self._lock_file) and self._read_only_ok:
-                warnings.warn(
-                    f"Lacking permissions required to obtain lock '{self._lock_file}'. "
-                    "Race conditions are possible if other processes are writing to the same resource.",
-                    UserWarning,
-                )
-            else:
-                raise
 
 
 def _resource_to_filename(resource: str, etag: str = None) -> str:
@@ -147,48 +105,6 @@ def filename_to_url(filename: str, cache_dir: Union[str, Path] = None) -> Tuple[
     return url, etag
 
 
-def check_tarfile(tar_file: tarfile.TarFile):
-    """Tar files can contain files outside of the extraction directory, or symlinks that point
-    outside the extraction directory. We also don't want any block devices fifos, or other
-    weird file types extracted. This checks for those issues and throws an exception if there
-    is a problem."""
-    base_path = os.path.join("tmp", "pathtest")
-    base_path = os.path.normpath(base_path)
-
-    def normalize_path(path: str) -> str:
-        path = path.rstrip("/")
-        path = path.replace("/", os.sep)
-        path = os.path.join(base_path, path)
-        path = os.path.normpath(path)
-        return path
-
-    for tarinfo in tar_file:
-        if not (
-            tarinfo.isreg()
-            or tarinfo.isdir()
-            or tarinfo.isfile()
-            or tarinfo.islnk()
-            or tarinfo.issym()
-        ):
-            raise ValueError(
-                f"Tar file {str(tar_file.name)} contains invalid member {tarinfo.name}."
-            )
-
-        target_path = normalize_path(tarinfo.name)
-        if os.path.commonprefix([base_path, target_path]) != base_path:
-            raise ValueError(
-                f"Tar file {str(tar_file.name)} is trying to create a file outside of its extraction directory."
-            )
-
-        if tarinfo.islnk() or tarinfo.issym():
-            target_path = normalize_path(tarinfo.linkname)
-            if os.path.commonprefix([base_path, target_path]) != base_path:
-                raise ValueError(
-                    f"Tar file {str(tar_file.name)} is trying to link to a file "
-                    "outside of its extraction directory."
-                )
-
-
 def cached_path(
     url_or_filename: Union[str, PathLike],
     cache_dir: Union[str, Path] = None,
@@ -223,7 +139,7 @@ def cached_path(
     cache_dir = os.path.expanduser(cache_dir)
     os.makedirs(cache_dir, exist_ok=True)
 
-    if not isinstance(url_or_filename, str):
+    if isinstance(url_or_filename, PathLike):
         url_or_filename = str(url_or_filename)
 
     file_path: str
@@ -310,7 +226,6 @@ def cached_path(
                         zip_file.close()
                 else:
                     tar_file = tarfile.open(file_path)
-                    check_tarfile(tar_file)
                     tar_file.extractall(tmp_extraction_dir)
                     tar_file.close()
                 # Extraction was successful, rename temp directory to final
@@ -434,7 +349,6 @@ def _http_etag(url: str) -> Optional[str]:
 def _http_get(url: str, temp_file: IO) -> None:
     with _session_with_backoff() as session:
         req = session.get(url, stream=True)
-        req.raise_for_status()
         content_length = req.headers.get("Content-Length")
         total = int(content_length) if content_length is not None else None
         progress = Tqdm.tqdm(unit="B", total=total, desc="downloading")
@@ -531,7 +445,7 @@ class _Meta:
     The unix timestamp of when the corresponding resource was cached or extracted.
     """
 
-    size: int = 0
+    size: int = None
     """
     The size of the corresponding resource, in bytes.
     """
@@ -626,7 +540,7 @@ def get_from_cache(url: str, cache_dir: Union[str, Path] = None) -> str:
     # on the call to `lock.acquire()` until the process currently holding the lock
     # releases it.
     logger.debug("waiting to acquire lock on %s", cache_path)
-    with FileLock(cache_path + ".lock", read_only_ok=True):
+    with FileLock(cache_path + ".lock"):
         if os.path.exists(cache_path):
             logger.info("cache of %s is up-to-date", url)
         else:
@@ -721,6 +635,47 @@ def _get_resource_size(path: str) -> int:
     return total_size
 
 
+def format_timedelta(td: timedelta) -> str:
+    """
+    Format a timedelta for humans.
+    """
+    if td.days > 1:
+        return f"{td.days} days"
+    elif td.days > 0:
+        return f"{td.days} day"
+    else:
+        hours, remainder = divmod(td.seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+        if hours > 1:
+            return f"{hours} hours"
+        elif hours > 0:
+            return f"{hours} hour, {minutes} mins"
+        else:
+            return f"{minutes} mins"
+
+
+def format_size(size: int) -> str:
+    """
+    Format a size (in bytes) for humans.
+    """
+    GBs = size / (1024 * 1024 * 1024)
+    if GBs >= 10:
+        return f"{int(round(GBs, 0))}G"
+    if GBs >= 1:
+        return f"{round(GBs, 1):.1f}G"
+    MBs = size / (1024 * 1024)
+    if MBs >= 10:
+        return f"{int(round(MBs, 0))}M"
+    if MBs >= 1:
+        return f"{round(MBs, 1):.1f}M"
+    KBs = size / 1024
+    if KBs >= 10:
+        return f"{int(round(KBs, 0))}K"
+    if KBs >= 1:
+        return f"{round(KBs, 1):.1f}K"
+    return f"{size}B"
+
+
 class _CacheEntry(NamedTuple):
     regular_files: List[_Meta]
     extraction_dirs: List[_Meta]
@@ -787,8 +742,6 @@ def inspect_cache(patterns: List[str] = None, cache_dir: Union[str, Path] = None
     """
     Print out useful information about the cache directory.
     """
-    from allennlp.common.util import format_timedelta, format_size
-
     cache_dir = os.path.expanduser(cache_dir or CACHE_DIRECTORY)
 
     # Gather cache entries by resource.

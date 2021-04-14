@@ -1,4 +1,4 @@
-from typing import Union, Dict, Any, List, Tuple, Optional
+from typing import Union, Dict, Any, List, Tuple
 
 import logging
 import os
@@ -48,9 +48,9 @@ class Checkpointer(Registrable):
 
     def __init__(
         self,
-        serialization_dir: str,
+        serialization_dir: str = None,
         keep_serialized_model_every_num_seconds: int = None,
-        num_serialized_models_to_keep: int = 2,
+        num_serialized_models_to_keep: int = 4,
         model_save_interval: float = None,
     ) -> None:
         self._serialization_dir = serialization_dir
@@ -90,7 +90,6 @@ class Checkpointer(Registrable):
         epoch: Union[int, str],
         trainer: "allennlp.training.trainer.Trainer",
         is_best_so_far: bool = False,
-        save_model_only=False,
     ) -> None:
         if self._serialization_dir is not None:
             with trainer.get_checkpoint_state() as state:
@@ -98,16 +97,11 @@ class Checkpointer(Registrable):
                 model_path = os.path.join(
                     self._serialization_dir, "model_state_epoch_{}.th".format(epoch)
                 )
-                if not os.path.isfile(model_path):
-                    torch.save(model_state, model_path)
-                if save_model_only:
-                    return
-
+                torch.save(model_state, model_path)
                 training_path = os.path.join(
                     self._serialization_dir, "training_state_epoch_{}.th".format(epoch)
                 )
-                if not os.path.isfile(training_path):
-                    torch.save({**training_states, "epoch": epoch}, training_path)
+#                 torch.save({**training_states, "epoch": epoch}, training_path)
 
             # The main checkpointing logic is now done, this is just shuffling files around, to keep
             # track of best weights, and to remove old checkpoints, if desired.
@@ -146,7 +140,7 @@ class Checkpointer(Registrable):
                             if os.path.isfile(fname):
                                 os.remove(fname)
 
-    def find_latest_checkpoint(self) -> Optional[Tuple[str, str]]:
+    def find_latest_checkpoint(self) -> Tuple[str, str]:
         """
         Return the location of the latest model and training state files.
         If there isn't a valid checkpoint then return None.
@@ -164,7 +158,7 @@ class Checkpointer(Registrable):
         # int (for end of epoch files) or with epoch and timestamp for
         # within epoch checkpoints, e.g. 5.2018-02-02-15-33-42
         found_epochs = [
-            re.search(r"model_state_epoch_([0-9\.\-]+)\.th", x).group(1) for x in model_checkpoints  # type: ignore
+            re.search(r"model_state_epoch_([0-9\.\-]+)\.th", x).group(1) for x in model_checkpoints
         ]
         int_epochs: Any = []
         for epoch in found_epochs:

@@ -92,7 +92,7 @@ class Hotflip(Attacker):
         final output embedding. We then group all of those output embeddings into an "embedding
         matrix".
         """
-        embedding_layer = self.predictor.get_interpretable_layer()
+        embedding_layer = util.find_embedding_layer(self.predictor._model)
         self.embedding_layer = embedding_layer
         if isinstance(embedding_layer, (Embedding, torch.nn.modules.sparse.Embedding)):
             # If we're using something that already has an only embedding matrix, we can just use
@@ -360,7 +360,7 @@ class Hotflip(Attacker):
             # This happens when we've truncated our fake embedding matrix.  We need to do a dot
             # product with the word vector of the current token; if that token is out of
             # vocabulary for our truncated matrix, we need to run it through the embedding layer.
-            inputs = self._make_embedder_input([self.vocab.get_token_from_index(token_idx.item())])
+            inputs = self._make_embedder_input([self.vocab.get_token_from_index(token_idx)])
             word_embedding = self.embedding_layer(inputs)[0]
         else:
             word_embedding = torch.nn.functional.embedding(

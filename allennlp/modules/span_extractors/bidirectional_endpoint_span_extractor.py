@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 from overrides import overrides
 from torch.nn.parameter import Parameter
@@ -92,8 +90,6 @@ class BidirectionalEndpointSpanExtractor(SpanExtractor):
                 "BidirectionalEndpointSpanExtractor assumes the embedded representation "
                 "is bidirectional (and hence divisible by 2)."
             )
-
-        self._span_width_embedding: Optional[Embedding] = None
         if num_width_embeddings is not None and span_width_embedding_dim is not None:
             self._span_width_embedding = Embedding(
                 num_embeddings=num_width_embeddings, embedding_dim=span_width_embedding_dim
@@ -103,6 +99,8 @@ class BidirectionalEndpointSpanExtractor(SpanExtractor):
                 "To use a span width embedding representation, you must"
                 "specify both num_width_buckets and span_width_embedding_dim."
             )
+        else:
+            self._span_width_embedding = None
 
         self._use_sentinels = use_sentinels
         if use_sentinels:
@@ -242,7 +240,7 @@ class BidirectionalEndpointSpanExtractor(SpanExtractor):
             # Embed the span widths and concatenate to the rest of the representations.
             if self._bucket_widths:
                 span_widths = util.bucket_values(
-                    span_ends - span_starts, num_total_buckets=self._num_width_embeddings  # type: ignore
+                    span_ends - span_starts, num_total_buckets=self._num_width_embeddings
                 )
             else:
                 span_widths = span_ends - span_starts

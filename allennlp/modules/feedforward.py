@@ -64,6 +64,13 @@ class FeedForward(torch.nn.Module, FromParams):
     ) -> None:
 
         super().__init__()
+        if num_layers == 0:
+            self._output_dim = input_dim
+            self.input_dim = input_dim
+            self._linear_layers = []
+            self._activations = []
+            self._dropout = []
+            return
         if not isinstance(hidden_dims, list):
             hidden_dims = [hidden_dims] * num_layers  # type: ignore
         if not isinstance(activations, list):

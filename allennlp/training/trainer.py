@@ -6,7 +6,7 @@ import re
 import time
 import traceback
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from allennlp.common.util import int_to_device
 
@@ -47,7 +47,7 @@ class Trainer(Registrable):
 
     def __init__(
         self,
-        serialization_dir: str = None,
+        serialization_dir: str,
         cuda_device: Optional[Union[int, torch.device]] = None,
         distributed: bool = False,
         local_rank: int = 0,
@@ -83,9 +83,6 @@ class Trainer(Registrable):
         self._rank = local_rank
         self._master = self._rank == 0
         self._world_size = world_size
-        # Ensure serialization directory exists.
-        if serialization_dir is not None:
-            os.makedirs(serialization_dir, exist_ok=True)
 
     def train(self) -> Dict[str, Any]:
         """
@@ -119,7 +116,6 @@ class BatchCallback(Registrable):
         trainer: "GradientDescentTrainer",
         batch_inputs: List[List[TensorDict]],
         batch_outputs: List[Dict[str, Any]],
-        batch_metrics: Dict[str, Any],
         epoch: int,
         batch_number: int,
         is_training: bool,
@@ -141,7 +137,6 @@ class TensoboardBatchMemoryUsage(BatchCallback):
         trainer: "GradientDescentTrainer",
         batch_inputs: List[List[TensorDict]],
         batch_outputs: List[Dict[str, Any]],
-        batch_metrics: Dict[str, Any],
         epoch: int,
         batch_number: int,
         is_training: bool,
@@ -149,10 +144,11 @@ class TensoboardBatchMemoryUsage(BatchCallback):
     ) -> None:
         # In the distributed case we need to call this from every worker, since every
         # worker reports its own memory usage.
-        cpu_memory_usage = common_util.peak_cpu_memory()
-        gpu_memory_usage = common_util.peak_gpu_memory()
-        # But we only want to log from the master process.
+        cpu_memory_usage = common_util.peak_memory_mb()
+        # But we only want to call `gpu_memory_mb` and `log_memory_usage` from the
+        # master process.
         if is_master:
+            gpu_memory_usage = common_util.gpu_memory_mb()
             trainer._tensorboard.log_memory_usage(cpu_memory_usage, gpu_memory_usage)
 
 
@@ -181,7 +177,7 @@ EpochCallback.register("null")(EpochCallback)
 
 
 @EpochCallback.register("track_epoch_callback")
-class TrackEpochCallback(EpochCallback):
+class TrackEpochCallback:
     """
     A callback that you can pass to the `GradientDescentTrainer` to access the current epoch number
     in your model during training. This callback sets `model.epoch`, which can be read inside of
@@ -201,116 +197,6 @@ class TrackEpochCallback(EpochCallback):
         is_master: bool,
     ) -> None:
         trainer.model.epoch = epoch + 1
-
-
-_BasicCallback = Union[BatchCallback, EpochCallback]
-
-
-class _TrainerCallbackMeta(type):
-    def __new__(cls, name, bases, dct):
-        """
-        Add subclasses that wrap the `TrainerCallback` into other interfaces.
-        """
-        subtype = super().__new__(cls, name, bases, dct)
-        # These subtypes wrap the `TrainerCallback` into the `_BasicCallback` interfaces.
-        subtype.Batch = cls._make_callback_type(BatchCallback, subtype.on_batch)
-        subtype.Epoch = cls._make_callback_type(EpochCallback, subtype.on_epoch)
-        subtype.End = cls._make_callback_type(EpochCallback, subtype.on_end)
-        return subtype
-
-    @classmethod
-    def _make_callback_type(
-        cls,
-        call_type: Type[_BasicCallback],
-        call: Callable[[], None],
-    ) -> Type[_BasicCallback]:  # type: ignore
-        class _Wrapper(call_type):  # type: ignore
-            def __init__(self, trainer_callback: "TrainerCallback"):
-                self.trainer_callback = trainer_callback
-
-            def __call__(self, trainer: "GradientDescentTrainer", *args, **kwargs):
-                call(self.trainer_callback, trainer, *args, **kwargs)  # type: ignore
-
-        return _Wrapper
-
-
-class TrainerCallback(Registrable, metaclass=_TrainerCallbackMeta):
-    """
-    A general callback object that wraps all three types of callbacks into one.
-
-    Rather than a `__call__` method, this class has `on_batch`, `on_epoch`, and `on_end` methods, corresponding to
-    each callback type. Each one receives the state of the wrapper object as `self`. This enables easier state
-    sharing between related callbacks.
-
-    Under the hood, this is a metaclass that creates wrapping subclasses each time a subclass is created.
-    """
-
-    def on_batch(
-        self,
-        trainer: "GradientDescentTrainer",
-        batch_inputs: List[List[TensorDict]],
-        batch_outputs: List[Dict[str, Any]],
-        batch_metrics: Dict[str, Any],
-        epoch: int,
-        batch_number: int,
-        is_training: bool,
-        is_master: bool,
-    ) -> None:
-        """
-        This callback hook is called after the end of each batch. This is equivalent to `BatchCallback`.
-        """
-        pass
-
-    def on_epoch(
-        self,
-        trainer: "GradientDescentTrainer",
-        metrics: Dict[str, Any],
-        epoch: int,
-        is_master: bool,
-    ) -> None:
-        """
-        This callback hook is called after the end of each epoch. This is equivalent to `EpochCallback`.
-        """
-        pass
-
-    def on_end(
-        self,
-        trainer: "GradientDescentTrainer",
-        metrics: Dict[str, Any],
-        epoch: int,
-        is_master: bool,
-    ) -> None:
-        """
-        This callback hook is called after the final training epoch. The `epoch` is passed as an argument.
-        """
-        pass
-
-    def batch(self):
-        """
-        Construct a `BatchCallback` wrapper for this `TrainCallback`.
-
-        The `cls.Batch` type is created by the metaclass.
-        """
-        return self.Batch(self)
-
-    def epoch(self):
-        """
-        Construct an `EpochCallback` wrapper for this instance.
-
-        The `cls.Epoch` type is created by the metaclass.
-        """
-        return self.Epoch(self)
-
-    def end(self):
-        """
-        Construct an `EpochCallback` wrapping the `on_end` end-of-training hook.
-
-        The `cls.End` type is created by the metaclass.
-        """
-        return self.End(self)
-
-
-TrainerCallback.register("null")(TrainerCallback)
 
 
 @Trainer.register("gradient_descent", constructor="from_partial_objects")
@@ -430,13 +316,6 @@ class GradientDescentTrainer(Trainer):
         A list of callbacks that will be called at the end of every epoch, and at the start of
         training (with epoch = -1).
 
-    end_callbacks : `List[EpochCallback]`, optional (default = `None`)
-        A list of callbacks that will be called after the final epoch at the end of training. The type of the
-        callbacks is the same as `epoch_callbacks`.
-
-    trainer_callbacks : `List[TrainerCallback]`, optional (default = `None`)
-        A list of callbacks that will be called at each batch, epoch, and at the start and end of training.
-
     distributed : `bool`, optional, (default = `False`)
         If set, PyTorch's `DistributedDataParallel` is used to train the model in multiple GPUs. This also
         requires `world_size` to be greater than 1.
@@ -488,8 +367,6 @@ class GradientDescentTrainer(Trainer):
         moving_average: Optional[MovingAverage] = None,
         batch_callbacks: List[BatchCallback] = None,
         epoch_callbacks: List[EpochCallback] = None,
-        end_callbacks: List[EpochCallback] = None,
-        trainer_callbacks: List[TrainerCallback] = None,
         distributed: bool = False,
         local_rank: int = 0,
         world_size: int = 1,
@@ -505,6 +382,9 @@ class GradientDescentTrainer(Trainer):
         self.data_loader = data_loader
         self._validation_data_loader = validation_data_loader
         self.optimizer = optimizer
+        # for callback in epoch_callbacks:
+        #     if hasattr(callback, "eval_dataloader"):
+        #         callback.eval_dataloader = validation_data_loader
 
         if patience is None:  # no early stopping
             if validation_data_loader is not None:
@@ -525,8 +405,9 @@ class GradientDescentTrainer(Trainer):
 
         self._num_epochs = num_epochs
 
-        self._checkpointer: Optional[Checkpointer] = checkpointer
-        if checkpointer is None and serialization_dir is not None:
+        if checkpointer is not None:
+            self._checkpointer = checkpointer
+        else:
             self._checkpointer = Checkpointer(serialization_dir)
 
         self._grad_norm = grad_norm
@@ -537,19 +418,13 @@ class GradientDescentTrainer(Trainer):
         self._moving_average = moving_average
         self._batch_callbacks = batch_callbacks or []
         self._epoch_callbacks = epoch_callbacks or []
-        self._end_callbacks = end_callbacks or []
-
-        for callback in trainer_callbacks or []:
-            self._batch_callbacks.append(callback.batch())
-            self._epoch_callbacks.append(callback.epoch())
-            self._end_callbacks.append(callback.end())
 
         # We keep the total batch number as an instance variable because it
         # is used inside a closure for the hook which logs activations in
         # `_enable_activation_logging`.
         self._batch_num_total = 0
 
-        self._tensorboard = tensorboard_writer or TensorboardWriter(serialization_dir)
+        self._tensorboard = tensorboard_writer or TensorboardWriter(serialization_dir, should_log_learning_rate=True)
         self._tensorboard.get_batch_num_total = lambda: self._batch_num_total
         self._tensorboard.enable_activation_logging(self.model)
 
@@ -630,21 +505,25 @@ class GradientDescentTrainer(Trainer):
         """
         logger.info("Epoch %d/%d", epoch, self._num_epochs - 1)
         cpu_memory_usage = []
-        for worker, memory in common_util.peak_cpu_memory().items():
+        for worker, memory in common_util.peak_memory_mb().items():
             cpu_memory_usage.append((worker, memory))
-            logger.info(f"Worker {worker} memory usage: {common_util.format_size(memory)}")
+            logger.info(f"Worker {worker} memory usage MB: {memory}")
         gpu_memory_usage = []
-        for gpu, memory in common_util.peak_gpu_memory().items():
+        for gpu, memory in common_util.gpu_memory_mb().items():
             gpu_memory_usage.append((gpu, memory))
-            logger.info(f"GPU {gpu} memory usage: {common_util.format_size(memory)}")
+            logger.info(f"GPU {gpu} memory usage MB: {memory}")
 
         regularization_penalty = self.model.get_regularization_penalty()
 
         train_loss = 0.0
         batch_loss = 0.0
-        train_reg_loss = None if regularization_penalty is None else 0.0
-        batch_reg_loss = None if regularization_penalty is None else 0.0
 
+        if regularization_penalty is not None:
+            train_reg_loss = 0.0
+            batch_reg_loss = 0.0
+        else:
+            train_reg_loss = None
+            batch_reg_loss = None
         # Set the model to "train" mode.
         self._pytorch_model.train()
 
@@ -712,30 +591,28 @@ class GradientDescentTrainer(Trainer):
                 for p in param_group["params"]:
                     p.grad = None
 
-            batch_loss = 0.0
             batch_group_outputs = []
             for batch in batch_group:
                 with amp.autocast(self._use_amp):
                     batch_outputs = self.batch_outputs(batch, for_training=True)
                     batch_group_outputs.append(batch_outputs)
-                    loss = batch_outputs["loss"]
+                    loss = batch_outputs.get("loss")
                     reg_loss = batch_outputs.get("reg_loss")
                     if torch.isnan(loss):
                         raise ValueError("nan loss encountered")
                     loss = loss / len(batch_group)
 
-                    batch_loss += loss.item()
+                    batch_loss = loss.item()
+                    train_loss += batch_loss
                     if reg_loss is not None:
                         reg_loss = reg_loss / len(batch_group)
                         batch_reg_loss = reg_loss.item()
-                        train_reg_loss += batch_reg_loss  # type: ignore
+                        train_reg_loss += batch_reg_loss
 
                 if self._scaler is not None:
                     self._scaler.scale(loss).backward()
                 else:
                     loss.backward()
-
-            train_loss += batch_loss
 
             batch_grad_norm = self.rescale_gradients()
 
@@ -801,14 +678,12 @@ class GradientDescentTrainer(Trainer):
                     param_updates,
                 )
 
-                if self._checkpointer is not None:
-                    self._checkpointer.maybe_save_checkpoint(self, epoch, batches_this_epoch)
+                self._checkpointer.maybe_save_checkpoint(self, epoch, batches_this_epoch)
             for callback in self._batch_callbacks:
                 callback(
                     self,
                     batch_group,
                     batch_group_outputs,
-                    metrics,
                     epoch,
                     batches_this_epoch,
                     is_training=True,
@@ -842,12 +717,12 @@ class GradientDescentTrainer(Trainer):
         )
 
         for (worker, memory) in cpu_memory_usage:
-            metrics["worker_" + str(worker) + "_memory_MB"] = memory / (1024 * 1024)
+            metrics["worker_" + str(worker) + "_memory_MB"] = memory
         for (gpu_num, memory) in gpu_memory_usage:
-            metrics["gpu_" + str(gpu_num) + "_memory_MB"] = memory / (1024 * 1024)
+            metrics["gpu_" + str(gpu_num) + "_memory_MB"] = memory
         return metrics
 
-    def _validation_loss(self, epoch: int) -> Tuple[float, Optional[float], int]:
+    def _validation_loss(self, epoch: int) -> Tuple[float, float, int]:
         """
         Computes the validation loss. Returns it and the number of batches.
         """
@@ -876,10 +751,14 @@ class GradientDescentTrainer(Trainer):
             val_generator_tqdm = validation_data_loader
 
         batches_this_epoch = 0
-        val_loss = 0.0
-        val_batch_loss = 0.0
-        val_reg_loss = None if regularization_penalty is None else 0.0
-        val_batch_reg_loss = None if regularization_penalty is None else 0.0
+        val_loss = 0
+        val_batch_loss = 0
+        if regularization_penalty is not None:
+            val_reg_loss = 0
+            val_batch_reg_loss = 0
+        else:
+            val_reg_loss = None
+            val_batch_reg_loss = None
         done_early = False
         for batch in val_generator_tqdm:
             if self._distributed:
@@ -912,11 +791,11 @@ class GradientDescentTrainer(Trainer):
                     # count those batches for which we actually have a loss.  If this variable ever
                     # gets used for something else, we might need to change things around a bit.
                     batches_this_epoch += 1
-                    val_batch_loss = loss.item()
+                    val_batch_loss = loss.detach().cpu().numpy()
                     val_loss += val_batch_loss
                     if reg_loss is not None:
-                        val_batch_reg_loss = reg_loss.item()
-                        val_reg_loss += val_batch_reg_loss  # type: ignore
+                        val_batch_reg_loss = reg_loss.detach().cpu().numpy()
+                        val_reg_loss += val_batch_reg_loss
 
             # Update the description with the latest metrics
             val_metrics = training_util.get_metrics(
@@ -939,7 +818,6 @@ class GradientDescentTrainer(Trainer):
                     self,
                     [batch],
                     [batch_outputs],
-                    val_metrics,
                     epoch,
                     batches_this_epoch,
                     is_training=False,
@@ -966,13 +844,6 @@ class GradientDescentTrainer(Trainer):
         Trains the supplied model with the supplied parameters.
         """
         try:
-            return self._try_train()
-        finally:
-            # make sure pending events are flushed to disk and files are closed properly
-            self._tensorboard.close()
-
-    def _try_train(self) -> Dict[str, Any]:
-        try:
             epoch_counter = self._restore_checkpoint()
         except RuntimeError:
             traceback.print_exc()
@@ -987,7 +858,7 @@ class GradientDescentTrainer(Trainer):
         logger.info("Beginning training.")
 
         val_metrics: Dict[str, float] = {}
-        this_epoch_val_metric: float = 0.0
+        this_epoch_val_metric: float = None
         metrics: Dict[str, Any] = {}
         epochs_trained = 0
         training_start_time = time.time()
@@ -1002,13 +873,6 @@ class GradientDescentTrainer(Trainer):
         for epoch in range(epoch_counter, self._num_epochs):
             epoch_start_time = time.time()
             train_metrics = self._train_epoch(epoch)
-
-            if self._master and self._checkpointer is not None:
-                self._checkpointer.save_checkpoint(epoch, self, save_model_only=True)
-
-            # Wait for the master to finish saving the model checkpoint
-            if self._distributed:
-                dist.barrier()
 
             # get peak of memory usage
             for key, value in train_metrics.items():
@@ -1075,8 +939,7 @@ class GradientDescentTrainer(Trainer):
 
             if self._serialization_dir and self._master:
                 common_util.dump_metrics(
-                    os.path.join(self._serialization_dir, f"metrics_epoch_{epoch}.json"),
-                    metrics,
+                    os.path.join(self._serialization_dir, f"metrics_epoch_{epoch}.json"), metrics
                 )
 
             # The Scheduler API is agnostic to whether your schedule requires a validation metric -
@@ -1086,7 +949,7 @@ class GradientDescentTrainer(Trainer):
             if self._momentum_scheduler:
                 self._momentum_scheduler.step(this_epoch_val_metric)
 
-            if self._master and self._checkpointer is not None:
+            if self._master:
                 self._checkpointer.save_checkpoint(
                     epoch, self, is_best_so_far=self._metric_tracker.is_best_so_far()
                 )
@@ -1111,13 +974,11 @@ class GradientDescentTrainer(Trainer):
 
             epochs_trained += 1
 
-        for callback in self._end_callbacks:
-            callback(self, metrics=metrics, epoch=epoch, is_master=self._master)
+        # make sure pending events are flushed to disk and files are closed properly
+        self._tensorboard.close()
 
         # Load the best model state before returning
-        best_model_state = (
-            None if self._checkpointer is None else self._checkpointer.best_model_state()
-        )
+        best_model_state = self._checkpointer.best_model_state()
         if best_model_state:
             self.model.load_state_dict(best_model_state)
 
@@ -1169,9 +1030,6 @@ class GradientDescentTrainer(Trainer):
             The epoch at which to resume training, which should be one after the epoch
             in the saved training state.
         """
-        if self._checkpointer is None:
-            return 0
-
         model_state, training_state = self._checkpointer.restore_checkpoint()
 
         if not training_state:
@@ -1227,21 +1085,19 @@ class GradientDescentTrainer(Trainer):
         cuda_device: Optional[Union[int, torch.device]] = None,
         grad_norm: float = None,
         grad_clipping: float = None,
-        distributed: bool = False,
+        distributed: bool = None,
         world_size: int = 1,
         num_gradient_accumulation_steps: int = 1,
         use_amp: bool = False,
         no_grad: List[str] = None,
-        optimizer: Lazy[Optimizer] = Lazy(Optimizer.default),
+        optimizer: Lazy[Optimizer] = None,
         learning_rate_scheduler: Lazy[LearningRateScheduler] = None,
         momentum_scheduler: Lazy[MomentumScheduler] = None,
-        tensorboard_writer: Lazy[TensorboardWriter] = Lazy(TensorboardWriter),
+        tensorboard_writer: Lazy[TensorboardWriter] = None,
         moving_average: Lazy[MovingAverage] = None,
-        checkpointer: Lazy[Checkpointer] = Lazy(Checkpointer),
+        checkpointer: Lazy[Checkpointer] = None,
         batch_callbacks: List[BatchCallback] = None,
         epoch_callbacks: List[EpochCallback] = None,
-        end_callbacks: List[EpochCallback] = None,
-        trainer_callbacks: List[TrainerCallback] = None,
     ) -> "Trainer":
         """
         This method exists so that we can have a documented method to construct this class using
@@ -1279,6 +1135,8 @@ class GradientDescentTrainer(Trainer):
 
         parameters = [[n, p] for n, p in model.named_parameters() if p.requires_grad]
         optimizer_ = optimizer.construct(model_parameters=parameters)
+        if not optimizer_:
+            optimizer_ = Optimizer.default(parameters)
 
         common_util.log_frozen_and_tunable_parameter_names(model)
 
@@ -1289,23 +1147,16 @@ class GradientDescentTrainer(Trainer):
         except TypeError:
             batches_per_epoch = None
 
-        moving_average_ = (
-            None if moving_average is None else moving_average.construct(parameters=parameters)
+        moving_average_ = moving_average.construct(parameters=parameters)
+        learning_rate_scheduler_ = learning_rate_scheduler.construct(
+            optimizer=optimizer_, num_epochs=num_epochs, num_steps_per_epoch=batches_per_epoch
         )
-        learning_rate_scheduler_ = (
-            None
-            if learning_rate_scheduler is None
-            else learning_rate_scheduler.construct(
-                optimizer=optimizer_, num_epochs=num_epochs, num_steps_per_epoch=batches_per_epoch
-            )
-        )
-        momentum_scheduler_ = (
-            None
-            if momentum_scheduler is None
-            else momentum_scheduler.construct(optimizer=optimizer_)
-        )
-        checkpointer_ = checkpointer.construct(serialization_dir=serialization_dir)
-        tensorboard_writer_ = tensorboard_writer.construct(serialization_dir=serialization_dir)
+        momentum_scheduler_ = momentum_scheduler.construct(optimizer=optimizer_)
+
+        checkpointer_ = checkpointer.construct() or Checkpointer(serialization_dir)
+        tensorboard_writer_ = tensorboard_writer.construct() or TensorboardWriter(serialization_dir)
+        tensorboard_writer_._should_log_parameter_statistics = False
+        tensorboard_writer_._should_log_learning_rate = True
 
         return cls(
             model,
@@ -1326,8 +1177,6 @@ class GradientDescentTrainer(Trainer):
             moving_average=moving_average_,
             batch_callbacks=batch_callbacks,
             epoch_callbacks=epoch_callbacks,
-            end_callbacks=end_callbacks,
-            trainer_callbacks=trainer_callbacks,
             distributed=distributed,
             local_rank=local_rank,
             world_size=world_size,

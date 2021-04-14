@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import pickle
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 
 import numpy as np
 import torch
@@ -11,13 +11,13 @@ from allennlp.models.model import Model
 from overrides import overrides
 import torch.nn.functional as F
 
-from opendebias.models.base_model import BaseModel
+from allennlp.models import Model
 
 logger = logging.getLogger(__name__)
 
 
-@BaseModel.register("lookup-biasonly")
-class LookUp(BaseModel):
+@Model.register("lookup-biasonly")
+class LookUp(Model):
     def __init__(
         self,
         vocab: Vocabulary,
@@ -25,7 +25,7 @@ class LookUp(BaseModel):
         label_namespace: str = "labels",
         **kwargs,
     ) -> None:
-        super().__init__(vocab, forward_keys=["metadata.dataset_name", "index"], **kwargs)
+        super().__init__(vocab, **kwargs)
         assert len(bias_only_model_prediction_file) > 0
         self._label_namespace = label_namespace
         self._bias_only_model_logits = self._read_prediction_file(bias_only_model_prediction_file)
@@ -49,7 +49,7 @@ class LookUp(BaseModel):
         bias_logits_list = [None] * len(bias['logits'])
         dim = len(bias['logits'][0])
         index2token = bias['index2token']
-        for line_id, v in zip(bias['index'], bias['log_probs']):
+        for line_id, v in zip(bias['index'], bias['logits']):
             bias_logits = [None for _ in range(dim)]
             for i in range(dim):
                 label = index2token[str(i)]
@@ -60,10 +60,12 @@ class LookUp(BaseModel):
         return bias_logits_list
 
     def forward(self, 
-                dataset_name: str, 
+                metadata: List[Dict[str, Any]],
                 index: torch.IntTensor):
         # index: [bs]
+        dataset_name = metadata[0]['dataset_name']
         if dataset_name not in self._bias_only_model_logits:
+            assert not self.training
             return {}
     
         if self._bias_only_model_logits[dataset_name] is None:
@@ -79,7 +81,7 @@ class LookUp(BaseModel):
     
 
 
-@BaseModel.register("nop")
-class NonOpBiasOnly(BaseModel):
+@Model.register("nop")
+class NonOpBiasOnly(Model):
     def forward(self):
         return {}

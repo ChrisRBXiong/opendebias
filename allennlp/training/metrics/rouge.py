@@ -9,7 +9,7 @@ from allennlp.common.util import is_distributed
 from allennlp.training.metrics.metric import Metric
 
 
-@Metric.register("rouge")
+@Metric.register("rogue")
 class ROUGE(Metric):
     """
     Recall-Oriented Understudy for Gisting Evaluation (ROUGE)
@@ -113,7 +113,7 @@ class ROUGE(Metric):
 
         if is_distributed():
             device = predicted_tokens.device
-            _total_f1 = torch.tensor(total_f1, device=device)
+            _total_f1 = torch.tensor(total_f1).to(device)
             dist.all_reduce(_total_f1, op=dist.ReduceOp.SUM)
             total_f1 = _total_f1.item()
 
@@ -162,9 +162,9 @@ class ROUGE(Metric):
 
         if is_distributed():
             device = predicted_tokens.device
-            _total_recall = torch.tensor(total_recall, device=device)
-            _total_precision = torch.tensor(total_precision, device=device)
-            _total_f1 = torch.tensor(total_f1, device=device)
+            _total_recall = torch.tensor(total_recall).to(device)
+            _total_precision = torch.tensor(total_precision).to(device)
+            _total_f1 = torch.tensor(total_f1).to(device)
             dist.all_reduce(_total_recall, op=dist.ReduceOp.SUM)
             dist.all_reduce(_total_precision, op=dist.ReduceOp.SUM)
             dist.all_reduce(_total_f1, op=dist.ReduceOp.SUM)
@@ -206,13 +206,7 @@ class ROUGE(Metric):
         # ROUGE-L
         self._total_rouge_l_f1 += self._get_rouge_l_score(predictions, gold_targets)
 
-        sequence_count = len(predictions)
-        if is_distributed():
-            device = predictions.device
-            _sequence_count = torch.tensor(sequence_count, device=device)
-            dist.all_reduce(_sequence_count, op=dist.ReduceOp.SUM)
-            sequence_count = _sequence_count.item()
-        self._total_sequence_count += sequence_count
+        self._total_sequence_count += len(predictions)
 
     def _metric_mean(self, metric_sum):
         if self._total_sequence_count == 0:

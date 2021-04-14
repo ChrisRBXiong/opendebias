@@ -17,18 +17,18 @@ from allennlp.nn.util import (
 )
 from allennlp.training.metrics import CategoricalAccuracy
 
-from opendebias.models.base_model import BaseModel
+from allennlp.models import Model
 
 
 
-@BaseModel.register("esim")
-class ESIM(BaseModel):
+@Model.register("opendebias_esim")
+class OpenDebiasESIM(Model):
     """
     This `Model` implements the ESIM sequence model described in [Enhanced LSTM for Natural Language Inference]
     (https://www.semanticscholar.org/paper/Enhanced-LSTM-for-Natural-Language-Inference-Chen-Zhu/83e7654d545fbbaaf2328df365a781fb67b841b4)
     by Chen et al., 2017.
 
-    Registered as a `BaseModel` with name "esim".
+    Registered as a `Model` with name "esim".
 
     # Parameters
 
@@ -69,7 +69,7 @@ class ESIM(BaseModel):
         initializer: InitializerApplicator = InitializerApplicator(),
         **kwargs,
     ) -> None:
-        super().__init__(vocab, forward_keys=["sentence_a", "sentence_b", "label"], **kwargs)
+        super().__init__(vocab, **kwargs)
 
         self._text_field_embedder = text_field_embedder
         self._encoder = encoder
@@ -234,7 +234,7 @@ class ESIM(BaseModel):
         label_logits = self._output_logit(output_hidden)
         label_probs = torch.nn.functional.softmax(label_logits, dim=-1)
 
-        output_dict = {"label_logits": label_logits, "label_probs": label_probs}
+        output_dict = {"logits": label_logits, "probs": label_probs}
 
         if label is not None:
             loss = self._loss(label_logits, label.long().view(-1))

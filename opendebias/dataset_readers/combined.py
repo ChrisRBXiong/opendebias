@@ -35,7 +35,7 @@ class Combined(DatasetReader):
         self._main_model_dataset_reader = main_model_dataset_reader
         self._bias_only_model_dataset_reader = bias_only_model_dataset_reader
         if drop_fields is None:
-            self._drop_fields = set(["label", "index", "metadata"])
+            self._drop_fields = set(["index", "metadata"])
         else:
             self._drop_fields = set(drop_fields)
 

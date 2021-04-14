@@ -11,12 +11,12 @@ from allennlp.models.model import Model
 from overrides import overrides
 import torch.nn.functional as F
 
-from opendebias.models.base_model import BaseModel
+from allennlp.models import Model
 
 logger = logging.getLogger(__name__)
 
 
-@BaseModel.register("nop")
-class NonOpBiasOnly(BaseModel):
+@Model.register("no-op")
+class NonOpBiasOnly(Model):
     def forward(self):
         return {}

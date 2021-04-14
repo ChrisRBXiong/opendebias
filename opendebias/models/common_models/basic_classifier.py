@@ -10,11 +10,11 @@ from allennlp.nn import InitializerApplicator, util
 from allennlp.nn.util import get_text_field_mask
 from allennlp.training.metrics import CategoricalAccuracy
 
-from opendebias.models.base_model import BaseModel
+from allennlp.models import Model
 
 
-@BaseModel.register("basic_classifier")
-class BasicClassifier(BaseModel):
+@Model.register("opendebias_basic_classifier")
+class OpenDebiasBasicClassifier(Model):
     """
     This `Model` implements a basic text classifier. After embedding the text into
     a text field, we will optionally encode the embeddings with a `Seq2SeqEncoder`. The
@@ -23,7 +23,7 @@ class BasicClassifier(BaseModel):
     `Seq2SeqEncoder` is not provided, we will pass the embedded text directly to the
     `Seq2VecEncoder`.
 
-    Registered as a `BaseModel` with name "basic_classifier".
+    Registered as a `Model` with name "basic_classifier".
 
     # Parameters
 
@@ -64,7 +64,7 @@ class BasicClassifier(BaseModel):
         **kwargs,
     ) -> None:
 
-        super().__init__(vocab, forward_keys=["tokens", "label"], **kwargs)
+        super().__init__(vocab, **kwargs)
         self._text_field_embedder = text_field_embedder
 
         if seq2seq_encoder:

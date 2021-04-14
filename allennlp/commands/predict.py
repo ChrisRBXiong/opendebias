@@ -90,15 +90,6 @@ class Predict(Subcommand):
         )
 
         subparser.add_argument(
-            "--predictor-args",
-            type=str,
-            default="",
-            help=(
-                "an optional JSON structure used to provide additional parameters to the predictor"
-            ),
-        )
-
-        subparser.add_argument(
             "--file-friendly-logging",
             action="store_true",
             default=False,
@@ -119,19 +110,8 @@ def _get_predictor(args: argparse.Namespace) -> Predictor:
         overrides=args.overrides,
     )
 
-    predictor_args = args.predictor_args.strip()
-    if len(predictor_args) <= 0:
-        predictor_args = {}
-    else:
-        import json
-
-        predictor_args = json.loads(predictor_args)
-
     return Predictor.from_archive(
-        archive,
-        args.predictor,
-        dataset_reader_to_load=args.dataset_reader_choice,
-        extra_args=predictor_args,
+        archive, args.predictor, dataset_reader_to_load=args.dataset_reader_choice
     )
 
 
@@ -148,10 +128,16 @@ class _PredictManager:
 
         self._predictor = predictor
         self._input_file = input_file
-        self._output_file = None if output_file is None else open(output_file, "w")
+        if output_file is not None:
+            self._output_file = open(output_file, "w")
+        else:
+            self._output_file = None
         self._batch_size = batch_size
         self._print_to_console = print_to_console
-        self._dataset_reader = None if not has_dataset_reader else predictor._dataset_reader
+        if has_dataset_reader:
+            self._dataset_reader = predictor._dataset_reader
+        else:
+            self._dataset_reader = None
 
     def _predict_json(self, batch_data: List[JsonDict]) -> Iterator[str]:
         if len(batch_data) == 1:

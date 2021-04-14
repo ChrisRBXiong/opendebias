@@ -64,7 +64,7 @@ class DRiFt(EBDLoss):
             output_dict['loss'] = F.cross_entropy(ensemble_logits, labels)
         return output_dict
 
-@EBDLoss.register("learned-mixin")
+@EBDLoss.register("learned_mixin")
 class LearnedMixin(EBDLoss):
     def __init__(self, input_dim: int, penalty: Optional[float] = None):
         super().__init__()
@@ -104,7 +104,7 @@ class LearnedMixin(EBDLoss):
             output_dict['loss'] = loss
         return output_dict    
 
-@EBDLoss.register("debiased-focal-loss")
+@EBDLoss.register("debiased_focal_loss")
 class DebiasedFocalLoss(EBDLoss):
     def __init__(self, gamma: float):
         self._gamma = gamma
@@ -133,7 +133,7 @@ class DebiasedFocalLoss(EBDLoss):
         return output_dict
 
 
-@EBDLoss.register("cross-entropy")
+@EBDLoss.register("cross_entropy")
 class PlainCrossEntropy(EBDLoss):
     @overrides
     def forward(self, 
@@ -151,7 +151,7 @@ class PlainCrossEntropy(EBDLoss):
         }
         return output_dict
 
-@EBDLoss.register("conf-reg")
+@EBDLoss.register("conf_reg")
 class ConfidenceRegularization(EBDLoss):
     @overrides
     def forward(self, 

@@ -11,14 +11,15 @@ from allennlp.modules import FeedForward
 from allennlp.models.model import Model
 from overrides import overrides
 import torch.nn.functional as F
+from allennlp.nn import InitializerApplicator
 
-from opendebias.models.base_model import BaseModel
+from allennlp.models import Model
 
 logger = logging.getLogger(__name__)
 
 
-@BaseModel.register("non-linear")
-class NonLinearClassifier(BaseModel):
+@Model.register("non-linear")
+class NonLinearClassifier(Model):
     def __init__(
         self,
         vocab: Vocabulary,
@@ -28,8 +29,7 @@ class NonLinearClassifier(BaseModel):
         initializer: InitializerApplicator = InitializerApplicator(),
         **kwargs,
     ) -> None:
-        super().__init__(vocab, forward_keys=["main_model.hidden", "label"], **kwargs)
-        assert len(bias_only_model_prediction_file) > 0
+        super().__init__(vocab, **kwargs)
         self._label_namespace = label_namespace
         self._feedforward = feedforward
         if num_labels:
@@ -37,7 +37,6 @@ class NonLinearClassifier(BaseModel):
         else:
             self._num_labels = vocab.get_vocab_size(namespace=self._label_namespace)
         self._classification_layer = torch.nn.Linear(self._feedforward.get_output_dim(), self._num_labels)
-        self._accuracy = CategoricalAccuracy()
         self._loss = torch.nn.CrossEntropyLoss()
         initializer(self)
     
@@ -50,12 +49,4 @@ class NonLinearClassifier(BaseModel):
         if label is not None:
             loss = self._loss(logits, label.long().view(-1))
             output_dict["loss"] = loss
-            self._accuracy(logits, label)
-        
         return output_dict
-
-    def get_metrics(self, reset: bool = False) -> Dict[str, float]:
-        metrics = {"accuracy": self._accuracy.get_metric(reset)}
-        return metrics
-
-
