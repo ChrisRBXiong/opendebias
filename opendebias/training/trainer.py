@@ -825,52 +825,52 @@ class OpenDebiasGradientDescentTrainer(Trainer):
         yourself in your code and call the constructor directly.
         """
         # Load pretrained_bert_encoder
-        if fix_pretrained_bert_encoder_path is not None:    # previous code, for pretrained bias-only model
-            logger.info(
-                "Load BERT Encoder From {}".format(fix_pretrained_bert_encoder_path)
-                )
-            encoder = load_archive(
-                fix_pretrained_bert_encoder_path,
-                cuda_device=-1,
-            ).model.main_model._text_field_embedder
-            for name, parameter in encoder.named_parameters():
-                parameter.requires_grad_(False)
-            model._text_field_embedder = encoder 
+        # if fix_pretrained_bert_encoder_path is not None:    # previous code, for pretrained bias-only model
+        #     logger.info(
+        #         "Load BERT Encoder From {}".format(fix_pretrained_bert_encoder_path)
+        #         )
+        #     encoder = load_archive(
+        #         fix_pretrained_bert_encoder_path,
+        #         cuda_device=-1,
+        #     ).model.main_model._text_field_embedder
+        #     for name, parameter in encoder.named_parameters():
+        #         parameter.requires_grad_(False)
+        #     model._text_field_embedder = encoder 
 
         # Load pretrained module, and fix it. Train other parts
-        if fix_pretrained_module_config is not None:
-            weights_file = fix_pretrained_module_config['weights_file'] if 'weights_file' in fix_pretrained_module_config else None
-            if weights_file is not None:
-                logger.info(
-                    "Load Pretrained Module {} From {}, load {}, and Load to {}".format(
-                        fix_pretrained_module_config['from_class_path'], 
-                        fix_pretrained_module_config['file_path'],
-                        weights_file,
-                        fix_pretrained_module_config['to_class_path'], 
-                    ))  
-            else:
-                logger.info(
-                    "Load Pretrained Module {} From {}, and Load to {}".format(
-                        fix_pretrained_module_config['from_class_path'], 
-                        fix_pretrained_module_config['file_path'],
-                        fix_pretrained_module_config['to_class_path'], 
-                    ))
-            from_model = load_archive(fix_pretrained_module_config['file_path'], cuda_device=-1, weights_file=weights_file).model
+        # if fix_pretrained_module_config is not None:
+        #     weights_file = fix_pretrained_module_config['weights_file'] if 'weights_file' in fix_pretrained_module_config else None
+        #     if weights_file is not None:
+        #         logger.info(
+        #             "Load Pretrained Module {} From {}, load {}, and Load to {}".format(
+        #                 fix_pretrained_module_config['from_class_path'], 
+        #                 fix_pretrained_module_config['file_path'],
+        #                 weights_file,
+        #                 fix_pretrained_module_config['to_class_path'], 
+        #             ))  
+        #     else:
+        #         logger.info(
+        #             "Load Pretrained Module {} From {}, and Load to {}".format(
+        #                 fix_pretrained_module_config['from_class_path'], 
+        #                 fix_pretrained_module_config['file_path'],
+        #                 fix_pretrained_module_config['to_class_path'], 
+        #             ))
+        #     from_model = load_archive(fix_pretrained_module_config['file_path'], cuda_device=-1, weights_file=weights_file).model
 
-            def locate_and_replace(from_path, to_path, from_model, to_model):
-                for module in from_path.split('.'):
-                    from_model = getattr(from_model, module)
-                # for name, parameter in from_model.named_parameters():
-                #     parameter.requires_grad_(False)
-                for module in to_path.split('.')[:-1]:
-                    to_model = getattr(to_model, module)
-                setattr(to_model, to_path.split('.')[-1], from_model)
+        #     def locate_and_replace(from_path, to_path, from_model, to_model):
+        #         for module in from_path.split('.'):
+        #             from_model = getattr(from_model, module)
+        #         for name, parameter in from_model.named_parameters():
+        #             parameter.requires_grad_(False)
+        #         for module in to_path.split('.')[:-1]:
+        #             to_model = getattr(to_model, module)
+        #         setattr(to_model, to_path.split('.')[-1], from_model)
 
-            from_paths = fix_pretrained_module_config['from_class_path'].split(',')
-            to_paths = fix_pretrained_module_config['to_class_path'].split(',')
-            assert len(from_paths) == len(to_paths)
-            for from_path, to_path in zip(from_paths, to_paths):
-                locate_and_replace(from_path, to_path, from_model, model)
+        #     from_paths = fix_pretrained_module_config['from_class_path'].split(',')
+        #     to_paths = fix_pretrained_module_config['to_class_path'].split(',')
+        #     assert len(from_paths) == len(to_paths)
+        #     for from_path, to_path in zip(from_paths, to_paths):
+        #         locate_and_replace(from_path, to_path, from_model, model)
 
         if cuda_device is None:
             from torch import cuda

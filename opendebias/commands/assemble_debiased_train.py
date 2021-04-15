@@ -47,6 +47,7 @@ class AssembleDebiasedTrain(Subcommand):
         subparser.add_argument("--validation-set-param-path", type=str, default=None)
         subparser.add_argument("--main-model-param-path", type=str, required=True)
         subparser.add_argument("--bias-only-model-param-path", type=str, default=None)
+        subparser.add_argument("--bias-only-model-load-config", type=json.loads, default=None)
         subparser.add_argument("--bias-file-args", type=json.loads, default=None)
         subparser.add_argument("--training-param-path", type=str, required=True)
 
@@ -82,7 +83,7 @@ class AssembleDebiasedTrain(Subcommand):
             default=False,
             help="recover training from the state in serialization_dir",
         )
-
+    
         subparser.add_argument(
             "-f",
             "--force",
@@ -177,13 +178,15 @@ def create_sampler_config(sampler, sampler_args):
         sampler_config.update(sampler_args)
     return sampler_config
 
-def create_bias_only_model_config(bias_file_args, bias_only_model_param_path):
+def create_bias_only_model_config(bias_file_args, bias_only_model_param_path, bias_only_model_load_config):
     # process bias-only model
     if bias_only_model_param_path is None:
         bias_only_model_config = {"type": "lookup-biasonly", 
                                   "bias_only_model_prediction_file": bias_file_args}
     else:
         bias_only_model_config = Params.from_file(bias_only_model_param_path).as_dict(quiet=True)
+        if bias_only_model_config is not None and len(bias_only_model_config) > 0:
+            bias_only_model_config["load_weight_configs"] = bias_only_model_load_config
     return bias_only_model_config
             
 def create_contrastive_loss_config(contrastive_loss, contrastive_loss_args):
@@ -641,6 +644,8 @@ class TrainModel(Registrable):
                 test_data_loader = data_loader.construct(dataset=test_data)
         else:
             test_data_loader = None
+        
+        model_.bias_only_model_load_weight()
 
         # We don't need to pass serialization_dir and local_rank here, because they will have been
         # passed through the trainer by from_params already, because they were keyword arguments to

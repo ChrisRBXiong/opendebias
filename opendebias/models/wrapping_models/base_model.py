@@ -102,3 +102,6 @@ class EBDModelBase(Model):
         for key, metric in self._ensemble_metrics.items():
             metrics[f'ensemble_{key}'] = metric.get_metric(reset)
         return metrics
+    
+    def bias_only_model_load_weight(self):
+        self._bias_only_model.load_weight()

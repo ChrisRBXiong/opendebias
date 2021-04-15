@@ -6,20 +6,20 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
-from allennlp.data import TextFieldTensors, Vocabulary
-from allennlp.modules import FeedForward
-from allennlp.models.model import Model
-from overrides import overrides
 import torch.nn.functional as F
-from allennlp.nn import InitializerApplicator
-
+from allennlp.data import TextFieldTensors, Vocabulary
 from allennlp.models import Model
+from allennlp.models.model import Model
+from allennlp.modules import FeedForward
+from allennlp.nn import InitializerApplicator
+from opendebias.models.loadable_model import LoadableModel
+from overrides import overrides
 
 logger = logging.getLogger(__name__)
 
 
 @Model.register("non-linear")
-class NonLinearClassifier(Model):
+class NonLinearClassifier(LoadableModel):
     def __init__(
         self,
         vocab: Vocabulary,

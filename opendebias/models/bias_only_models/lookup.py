@@ -11,13 +11,15 @@ from allennlp.models.model import Model
 from overrides import overrides
 import torch.nn.functional as F
 
+from opendebias.models.loadable_model import LoadableModel
+
 from allennlp.models import Model
 
 logger = logging.getLogger(__name__)
 
 
 @Model.register("lookup-biasonly")
-class LookUp(Model):
+class LookUp(LoadableModel):
     def __init__(
         self,
         vocab: Vocabulary,
@@ -25,10 +27,16 @@ class LookUp(Model):
         label_namespace: str = "labels",
         **kwargs,
     ) -> None:
+        # bias_only_model_prediction_file: [{"file_name":xxx, "dataset_name": xxx}]∂
         super().__init__(vocab, **kwargs)
         assert len(bias_only_model_prediction_file) > 0
         self._label_namespace = label_namespace
         self._bias_only_model_logits = self._read_prediction_file(bias_only_model_prediction_file)
+
+    @overrides
+    def load_weight():
+        pass
+        
 
     def _read_prediction_file(self, args: List[Dict[str, str]]):
         bias_logits: Dict[str, np.ndarray] = {}

@@ -91,3 +91,6 @@ class ContrastiveEBDModel(Model):
 
     def get_metrics(self, reset: bool = False) -> Dict[str, float]:
         return self._model.get_metrics(reset=reset)
+
+    def bias_only_model_load_weight(self):
+        self._model.bias_only_model_load_weight()
