@@ -34,7 +34,7 @@ class LookUp(LoadableModel):
         self._bias_only_model_logits = self._read_prediction_file(bias_only_model_prediction_file)
 
     @overrides
-    def load_weight():
+    def load_weight(self):
         pass
         
 

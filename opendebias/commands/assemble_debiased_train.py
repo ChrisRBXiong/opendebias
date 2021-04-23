@@ -39,23 +39,49 @@ def read_list_with_comma(string):
 class AssembleDebiasedTrain(Subcommand):
     @overrides
     def add_subparser(self, parser: argparse._SubParsersAction) -> argparse.ArgumentParser:
-        description = """Train the specified model on the specified dataset."""
-        subparser = parser.add_parser(self.name, description=description, help="Train a model.")
+        description = """Debiased train the specified model on the specified dataset. (not including bias-only model train on two-stage)"""
+        subparser = parser.add_parser(self.name, description=description, help="Debiased Training")
 
 
-        subparser.add_argument("--train-set-param-path", type=str, required=True)
-        subparser.add_argument("--validation-set-param-path", type=str, default=None)
-        subparser.add_argument("--main-model-param-path", type=str, required=True)
-        subparser.add_argument("--bias-only-model-param-path", type=str, default=None)
-        subparser.add_argument("--bias-only-model-load-config", type=json.loads, default=None)
-        subparser.add_argument("--bias-file-args", type=json.loads, default=None)
-        subparser.add_argument("--training-param-path", type=str, required=True)
+        subparser.add_argument("--train-set-param-path", 
+                               type=str, 
+                               required=True,
+                               help="path to parameter file describing the train dataset reader and data path")
+        subparser.add_argument("--validation-set-param-path", 
+                               type=str, 
+                               default=None,
+                               help="path to parameter file describing the validation dataset reader and data path")
+        subparser.add_argument("--main-model-param-path", 
+                                type=str, 
+                                required=True,
+                                help="path to parameter file describing the main model")
+        subparser.add_argument("--bias-only-model-param-path", 
+                                type=str, 
+                                default=None,
+                                help="path to parameter file describing the bias-only model")
+        subparser.add_argument("--bias-only-model-load-config", 
+                                type=json.loads, 
+                                default=None,
+                                help="""a json structure describing how to load pretrained bias-only model,
+                                        e.g. [{"archive_file_path":[PATH_TO_ARCHIVE],
+                                               "weight_file_path":[OPTIONAL .th WEIGHT PATH],
+                                               "to_module_path":[TO_MODULE_PATH, e.g. encoder.text_filed_embeder, split with comma],
+                                               "from_module_path":[FROM_MODULE_PATH, split with comma],
+                                               "fix": [WHETHER TO FIX, split with comma]}]""")
+        subparser.add_argument("--bias-file-args", 
+                               type=json.loads, 
+                               default=None,
+                               help="""a json structure describing pretrained bias prediction file""")
+        subparser.add_argument("--training-param-path", 
+                                type=str, 
+                                required=True,
+                                help="path to parameter file describing the trainer")
 
-        subparser.add_argument("--ebd-mode", type=str)        
-        subparser.add_argument("--ebd-loss", type=str, default=None)
+        subparser.add_argument("--ebd-mode", type=str, help="two-stage or other")        
+        subparser.add_argument("--ebd-loss", type=str, default=None, help="including poe, etc.")
         subparser.add_argument("--ebd-loss-args", type=json.loads, default=None)
 
-        subparser.add_argument("--contrastive", action='store_true')
+        subparser.add_argument("--contrastive", action='store_true', help="whether to use contrastive loss")
         contrastive_mode = "--contrastive" in sys.argv
         subparser.add_argument("--contrastive-loss", type=str, default=None, required=contrastive_mode)
         subparser.add_argument("--contrastive-loss-args", type=json.loads, default=None, required=False)
@@ -238,7 +264,7 @@ def train_model_from_file(
     main_model_params = Params.from_file(main_model_param_path).as_dict(quiet=True)
     training_params = Params.from_file(training_param_path).as_dict(quiet=True)
     ebd_loss_params = create_ebd_loss_config(ebd_loss, ebd_loss_args)
-    bias_only_model_params = create_bias_only_model_config(bias_file_args, bias_only_model_param_path)
+    bias_only_model_params = create_bias_only_model_config(bias_file_args, bias_only_model_param_path, args.bias_only_model_load_config)
 
     if ebd_mode == 'two_stage':
         ebd_model_param_dict = {

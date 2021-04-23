@@ -4,6 +4,8 @@ test.py
 .vscode
 **/*.pyc
 */*.pyc
-configs
 histories
+!allennlp/data
+!examples/configs
 scripts
+!examples/scripts

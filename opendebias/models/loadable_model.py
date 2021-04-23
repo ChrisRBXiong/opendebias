@@ -46,7 +46,7 @@ class LoadableModel(Model):
             assert len(from_paths) == len(to_paths)
             for from_path, to_path, fix in zip(from_paths, to_paths, fixs):
                 self._locate_and_replace(from_path, to_path, to_load_model, bool(fix))
-        
+        if self._load_weight_configs is None: return
         for config in self._load_weight_configs:
             inner(config)
 
