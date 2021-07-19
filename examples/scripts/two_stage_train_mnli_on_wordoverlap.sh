@@ -1,9 +1,9 @@
 CUDA_DEVICE=0
-SEED=1010
+SEED=37462
 
-TRAIN_BIAS='{"dataset_name":"mnli_train","file_name":"examples/bias/mnli-hans/mind-trade-bias/train.json"}'
+TRAIN_BIAS='{"dataset_name":"mnli_train","file_name":"data/bias/mnli-hans/mind-trade-bias/train.json"}'
 METRICS='{"accuracy":{"type":"categorical_accuracy"}}'
-OUTPUT_FOLDER=examples/histories/two_stage_train_mnli_on_wordoverlap
+OUTPUT_FOLDER=examples/histories/two_stage_train_mnli_on_wordoverlap/basic_bert_lr_5_${SEED}-2/
 
 CUDA_VISIBLE_DEVICES=$CUDA_DEVICE READER_DEBUG=0 python -W ignore::UserWarning __main__.py assebmle_debiased_train \
     --train-set-param-path examples/configs/dataset/mnli_train.jsonnet \

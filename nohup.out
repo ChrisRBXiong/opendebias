@@ -1,0 +1,219 @@
+Traceback (most recent call last):
+  File "__main__.py", line 5, in <module>
+    import opendebias
+  File "/data/home/lanyanyan/xiongruibin/opendebias/opendebias/__init__.py", line 1, in <module>
+    import opendebias.commands
+  File "/data/home/lanyanyan/xiongruibin/opendebias/opendebias/commands/__init__.py", line 1, in <module>
+    from opendebias.commands.assemble_debiased_train import AssembleDebiasedTrain
+  File "/data/home/lanyanyan/xiongruibin/opendebias/opendebias/commands/assemble_debiased_train.py", line 18, in <module>
+    from allennlp.commands.subcommand import Subcommand
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/commands/__init__.py", line 8, in <module>
+    from allennlp.commands.build_vocab import BuildVocab
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/commands/build_vocab.py", line 17, in <module>
+    from allennlp.training.util import make_vocab_from_params
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/training/__init__.py", line 1, in <module>
+    from allennlp.training.checkpointer import Checkpointer
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/training/checkpointer.py", line 14, in <module>
+    from allennlp.training import util as training_util
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/training/util.py", line 25, in <module>
+    from allennlp.models.archival import CONFIG_NAME
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/models/__init__.py", line 8, in <module>
+    from allennlp.models.simple_tagger import SimpleTagger
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/models/simple_tagger.py", line 15, in <module>
+    from allennlp.training.metrics import CategoricalAccuracy, SpanBasedF1Measure
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/training/metrics/__init__.py", line 15, in <module>
+    from allennlp.training.metrics.evalb_bracketing_scorer import (
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/training/metrics/evalb_bracketing_scorer.py", line 9, in <module>
+    from nltk import Tree
+  File "/data/home/lanyanyan/xiongruibin/anaconda3/envs/debias_allen/lib/python3.6/site-packages/nltk/__init__.py", line 142, in <module>
+    from nltk.chunk import *
+  File "/data/home/lanyanyan/xiongruibin/anaconda3/envs/debias_allen/lib/python3.6/site-packages/nltk/chunk/__init__.py", line 157, in <module>
+    from nltk.chunk.api import ChunkParserI
+  File "/data/home/lanyanyan/xiongruibin/anaconda3/envs/debias_allen/lib/python3.6/site-packages/nltk/chunk/api.py", line 13, in <module>
+    from nltk.parse import ParserI
+  File "/data/home/lanyanyan/xiongruibin/anaconda3/envs/debias_allen/lib/python3.6/site-packages/nltk/parse/__init__.py", line 100, in <module>
+    from nltk.parse.transitionparser import TransitionParser
+  File "/data/home/lanyanyan/xiongruibin/anaconda3/envs/debias_allen/lib/python3.6/site-packages/nltk/parse/transitionparser.py", line 19, in <module>
+    from sklearn.datasets import load_svmlight_file
+  File "/data/home/lanyanyan/xiongruibin/anaconda3/envs/debias_allen/lib/python3.6/site-packages/sklearn/datasets/__init__.py", line 22, in <module>
+    from ._twenty_newsgroups import fetch_20newsgroups
+  File "<frozen importlib._bootstrap>", line 971, in _find_and_load
+KeyboardInterrupt
+2021-06-10 19:37:07,084 - INFO - allennlp.common.params - random_seed = 374621
+2021-06-10 19:37:07,097 - INFO - allennlp.common.params - numpy_seed = 37462
+2021-06-10 19:37:07,097 - INFO - allennlp.common.params - pytorch_seed = 3747
+2021-06-10 19:37:07,137 - INFO - allennlp.common.checks - Pytorch version: 1.7.1
+2021-06-10 19:37:07,140 - INFO - allennlp.common.params - type = default
+2021-06-10 19:37:07,142 - INFO - allennlp.common.params - dataset_reader.type = mnli
+2021-06-10 19:37:07,142 - INFO - allennlp.common.params - dataset_reader.lazy = False
+2021-06-10 19:37:07,142 - INFO - allennlp.common.params - dataset_reader.cache_directory = None
+2021-06-10 19:37:07,143 - INFO - allennlp.common.params - dataset_reader.max_instances = None
+2021-06-10 19:37:07,143 - INFO - allennlp.common.params - dataset_reader.manual_distributed_sharding = False
+2021-06-10 19:37:07,143 - INFO - allennlp.common.params - dataset_reader.manual_multi_process_sharding = False
+2021-06-10 19:37:07,143 - INFO - allennlp.common.params - dataset_reader.dataset_name = mnli_train
+2021-06-10 19:37:07,143 - INFO - allennlp.common.params - dataset_reader.line_format = None
+2021-06-10 19:37:07,143 - INFO - allennlp.common.params - dataset_reader.sentence_a_field = None
+2021-06-10 19:37:07,143 - INFO - allennlp.common.params - dataset_reader.sentence_b_field = None
+2021-06-10 19:37:07,143 - INFO - allennlp.common.params - dataset_reader.label_field = None
+2021-06-10 19:37:07,144 - INFO - allennlp.common.params - dataset_reader.instance_id_field = None
+2021-06-10 19:37:07,144 - INFO - allennlp.common.params - dataset_reader.index_field = None
+2021-06-10 19:37:07,144 - INFO - allennlp.common.params - dataset_reader.skip_index_label = False
+2021-06-10 19:37:07,144 - INFO - allennlp.common.params - dataset_reader.tokenizer.type = pretrained_transformer
+2021-06-10 19:37:07,145 - INFO - allennlp.common.params - dataset_reader.tokenizer.model_name = pretrained/bert-base-uncased
+2021-06-10 19:37:07,145 - INFO - allennlp.common.params - dataset_reader.tokenizer.add_special_tokens = False
+2021-06-10 19:37:07,145 - INFO - allennlp.common.params - dataset_reader.tokenizer.max_length = None
+2021-06-10 19:37:07,145 - INFO - allennlp.common.params - dataset_reader.tokenizer.stride = 0
+2021-06-10 19:37:07,145 - INFO - allennlp.common.params - dataset_reader.tokenizer.tokenizer_kwargs = None
+2021-06-10 19:37:07,474 - INFO - allennlp.common.params - dataset_reader.token_indexers.tokens.type = pretrained_transformer
+2021-06-10 19:37:07,474 - INFO - allennlp.common.params - dataset_reader.token_indexers.tokens.token_min_padding_length = 0
+2021-06-10 19:37:07,474 - INFO - allennlp.common.params - dataset_reader.token_indexers.tokens.model_name = pretrained/bert-base-uncased
+2021-06-10 19:37:07,475 - INFO - allennlp.common.params - dataset_reader.token_indexers.tokens.namespace = tags
+2021-06-10 19:37:07,475 - INFO - allennlp.common.params - dataset_reader.token_indexers.tokens.max_length = None
+2021-06-10 19:37:07,475 - INFO - allennlp.common.params - dataset_reader.token_indexers.tokens.tokenizer_kwargs = None
+2021-06-10 19:37:07,475 - INFO - allennlp.common.params - dataset_reader.combine_input_fields = None
+2021-06-10 19:37:07,475 - INFO - allennlp.common.params - dataset_reader.partial_input = False
+2021-06-10 19:37:07,476 - INFO - allennlp.common.params - train_data_path = data/glue_data/MNLI/train.tsv
+2021-06-10 19:37:07,476 - INFO - allennlp.common.params - vocabulary = None
+2021-06-10 19:37:07,476 - INFO - allennlp.common.params - datasets_for_vocab_creation = None
+2021-06-10 19:37:07,476 - INFO - allennlp.common.params - validation_dataset_reader.type = mnli
+2021-06-10 19:37:07,477 - INFO - allennlp.common.params - validation_dataset_reader.lazy = False
+2021-06-10 19:37:07,477 - INFO - allennlp.common.params - validation_dataset_reader.cache_directory = None
+2021-06-10 19:37:07,477 - INFO - allennlp.common.params - validation_dataset_reader.max_instances = None
+2021-06-10 19:37:07,477 - INFO - allennlp.common.params - validation_dataset_reader.manual_distributed_sharding = False
+2021-06-10 19:37:07,477 - INFO - allennlp.common.params - validation_dataset_reader.manual_multi_process_sharding = False
+2021-06-10 19:37:07,477 - INFO - allennlp.common.params - validation_dataset_reader.dataset_name = mnli_dev
+2021-06-10 19:37:07,477 - INFO - allennlp.common.params - validation_dataset_reader.line_format = None
+2021-06-10 19:37:07,477 - INFO - allennlp.common.params - validation_dataset_reader.sentence_a_field = None
+2021-06-10 19:37:07,477 - INFO - allennlp.common.params - validation_dataset_reader.sentence_b_field = None
+2021-06-10 19:37:07,477 - INFO - allennlp.common.params - validation_dataset_reader.label_field = None
+2021-06-10 19:37:07,477 - INFO - allennlp.common.params - validation_dataset_reader.instance_id_field = None
+2021-06-10 19:37:07,477 - INFO - allennlp.common.params - validation_dataset_reader.index_field = None
+2021-06-10 19:37:07,478 - INFO - allennlp.common.params - validation_dataset_reader.skip_index_label = False
+2021-06-10 19:37:07,478 - INFO - allennlp.common.params - validation_dataset_reader.tokenizer.type = pretrained_transformer
+2021-06-10 19:37:07,478 - INFO - allennlp.common.params - validation_dataset_reader.tokenizer.model_name = pretrained/bert-base-uncased
+2021-06-10 19:37:07,478 - INFO - allennlp.common.params - validation_dataset_reader.tokenizer.add_special_tokens = False
+2021-06-10 19:37:07,478 - INFO - allennlp.common.params - validation_dataset_reader.tokenizer.max_length = None
+2021-06-10 19:37:07,478 - INFO - allennlp.common.params - validation_dataset_reader.tokenizer.stride = 0
+2021-06-10 19:37:07,478 - INFO - allennlp.common.params - validation_dataset_reader.tokenizer.tokenizer_kwargs = None
+2021-06-10 19:37:07,479 - INFO - allennlp.common.params - validation_dataset_reader.token_indexers.tokens.type = pretrained_transformer
+2021-06-10 19:37:07,479 - INFO - allennlp.common.params - validation_dataset_reader.token_indexers.tokens.token_min_padding_length = 0
+2021-06-10 19:37:07,479 - INFO - allennlp.common.params - validation_dataset_reader.token_indexers.tokens.model_name = pretrained/bert-base-uncased
+2021-06-10 19:37:07,479 - INFO - allennlp.common.params - validation_dataset_reader.token_indexers.tokens.namespace = tags
+2021-06-10 19:37:07,479 - INFO - allennlp.common.params - validation_dataset_reader.token_indexers.tokens.max_length = None
+2021-06-10 19:37:07,479 - INFO - allennlp.common.params - validation_dataset_reader.token_indexers.tokens.tokenizer_kwargs = None
+2021-06-10 19:37:07,480 - INFO - allennlp.common.params - validation_dataset_reader.combine_input_fields = None
+2021-06-10 19:37:07,480 - INFO - allennlp.common.params - validation_dataset_reader.partial_input = False
+2021-06-10 19:37:07,480 - INFO - allennlp.common.params - validation_data_path = data/glue_data/MNLI/dev_matched.tsv
+2021-06-10 19:37:07,480 - INFO - allennlp.common.params - test_data_path = None
+2021-06-10 19:37:07,480 - INFO - allennlp.common.params - evaluate_on_test = False
+2021-06-10 19:37:07,480 - INFO - allennlp.common.params - batch_weight_key = 
+2021-06-10 19:37:07,481 - INFO - allennlp.training.util - Reading training data from data/glue_data/MNLI/train.tsv
+reading instances: 0it [00:00, ?it/s]2021-06-10 19:37:07,481 - INFO - opendebias.dataset_readers.text_pair_classification - Reading mnli_train instances from tsv dataset at: data/glue_data/MNLI/train.tsv
+2021-06-10 19:37:07,482 - WARNING - allennlp.data.fields.label_field - Your label namespace was '*instance_index'. We recommend you use a namespace ending with 'labels' or 'tags', so we don't add UNK and PAD tokens by default to your vocabulary.  See documentation for `non_padded_namespaces` parameter in Vocabulary.
+reading instances: 98it [00:00, 977.16it/s]reading instances: 197it [00:00, 979.34it/s]reading instances: 292it [00:00, 620.02it/s]reading instances: 391it [00:00, 697.51it/s]reading instances: 488it [00:00, 761.00it/s]reading instances: 583it [00:00, 808.35it/s]reading instances: 683it [00:00, 857.16it/s]reading instances: 780it [00:00, 881.26it/s]reading instances: 868it [00:01, 849.49it/s]reading instances: 960it [00:01, 867.68it/s]reading instances: 1000it [00:01, 805.34it/s]2021-06-10 19:37:08,723 - INFO - allennlp.training.util - Reading validation data from data/glue_data/MNLI/dev_matched.tsv
+
+reading instances: 0it [00:00, ?it/s]2021-06-10 19:37:08,724 - INFO - opendebias.dataset_readers.text_pair_classification - Reading mnli_dev instances from tsv dataset at: data/glue_data/MNLI/dev_matched.tsv
+reading instances: 101it [00:00, 1009.09it/s]reading instances: 201it [00:00, 1005.61it/s]reading instances: 304it [00:00, 1011.69it/s]reading instances: 400it [00:00, 993.72it/s] reading instances: 496it [00:00, 980.87it/s]reading instances: 602it [00:00, 1002.19it/s]reading instances: 703it [00:00, 1001.94it/s]reading instances: 809it [00:00, 1017.66it/s]reading instances: 912it [00:00, 1020.64it/s]reading instances: 1000it [00:00, 1010.33it/s]2021-06-10 19:37:09,714 - INFO - allennlp.data.vocabulary - Fitting token dictionary from dataset.
+
+building vocab: 0it [00:00, ?it/s]building vocab: 2000it [00:00, 119441.39it/s]2021-06-10 19:37:09,731 - INFO - allennlp.common.params - model.type = two_stage
+2021-06-10 19:37:09,732 - INFO - allennlp.common.params - model.regularizer = None
+2021-06-10 19:37:09,732 - INFO - allennlp.common.params - model.bias_only_model.type = lookup-biasonly
+2021-06-10 19:37:09,732 - INFO - allennlp.common.params - model.bias_only_model.regularizer = None
+2021-06-10 19:37:09,733 - INFO - allennlp.common.params - model.bias_only_model.load_weight_configs = None
+2021-06-10 19:37:09,733 - INFO - allennlp.common.params - model.bias_only_model.label_namespace = labels
+2021-06-10 19:37:14,158 - INFO - allennlp.common.params - model.main_model.type = opendebias_basic_classifier
+2021-06-10 19:37:14,159 - INFO - allennlp.common.params - model.main_model.regularizer = None
+2021-06-10 19:37:14,159 - INFO - allennlp.common.params - model.main_model.text_field_embedder.type = basic
+2021-06-10 19:37:14,159 - INFO - allennlp.common.params - model.main_model.text_field_embedder.token_embedders.tokens.type = pretrained_transformer
+2021-06-10 19:37:14,159 - INFO - allennlp.common.params - model.main_model.text_field_embedder.token_embedders.tokens.model_name = pretrained/bert-base-uncased
+2021-06-10 19:37:14,160 - INFO - allennlp.common.params - model.main_model.text_field_embedder.token_embedders.tokens.max_length = None
+2021-06-10 19:37:14,160 - INFO - allennlp.common.params - model.main_model.text_field_embedder.token_embedders.tokens.sub_module = None
+2021-06-10 19:37:14,160 - INFO - allennlp.common.params - model.main_model.text_field_embedder.token_embedders.tokens.train_parameters = True
+2021-06-10 19:37:14,160 - INFO - allennlp.common.params - model.main_model.text_field_embedder.token_embedders.tokens.last_layer_only = True
+2021-06-10 19:37:14,160 - INFO - allennlp.common.params - model.main_model.text_field_embedder.token_embedders.tokens.override_weights_file = None
+2021-06-10 19:37:14,160 - INFO - allennlp.common.params - model.main_model.text_field_embedder.token_embedders.tokens.override_weights_strip_prefix = None
+2021-06-10 19:37:14,160 - INFO - allennlp.common.params - model.main_model.text_field_embedder.token_embedders.tokens.gradient_checkpointing = None
+2021-06-10 19:37:14,160 - INFO - allennlp.common.params - model.main_model.text_field_embedder.token_embedders.tokens.tokenizer_kwargs = None
+2021-06-10 19:37:14,160 - INFO - allennlp.common.params - model.main_model.text_field_embedder.token_embedders.tokens.transformer_kwargs = None
+
+Traceback (most recent call last):
+  File "__main__.py", line 39, in <module>
+    run()
+  File "__main__.py", line 35, in run
+    main(prog="allennlp")
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/commands/__init__.py", line 94, in main
+    args.func(args)
+  File "/data/home/lanyanyan/xiongruibin/opendebias/opendebias/commands/assemble_debiased_train.py", line 186, in train_model_from_args
+    args = args
+  File "/data/home/lanyanyan/xiongruibin/opendebias/opendebias/commands/assemble_debiased_train.py", line 329, in train_model_from_file
+    args=args
+  File "/data/home/lanyanyan/xiongruibin/opendebias/opendebias/commands/assemble_debiased_train.py", line 360, in train_model
+    args=args
+  File "/data/home/lanyanyan/xiongruibin/opendebias/opendebias/commands/assemble_debiased_train.py", line 517, in _train_worker
+    local_rank=process_rank,
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 599, in from_params
+    **extras,
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 628, in from_params
+    return constructor_to_call(**kwargs)  # type: ignore
+  File "/data/home/lanyanyan/xiongruibin/opendebias/opendebias/commands/assemble_debiased_train.py", line 639, in from_partial_objects
+    model_ = model.construct(vocab=vocabulary_)
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/lazy.py", line 46, in construct
+    return self._constructor(**kwargs)
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 465, in constructor
+    return value_cls.from_params(params=deepcopy(popped_params), **constructor_extras)
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 599, in from_params
+    **extras,
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 626, in from_params
+    kwargs = create_kwargs(constructor_to_inspect, cls, params, **extras)
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 197, in create_kwargs
+    cls.__name__, param_name, annotation, param.default, params, **extras
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 306, in pop_and_construct_arg
+    return construct_arg(class_name, name, popped_params, annotation, default, **extras)
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 340, in construct_arg
+    return annotation.from_params(params=popped_params, **subextras)
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 599, in from_params
+    **extras,
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 626, in from_params
+    kwargs = create_kwargs(constructor_to_inspect, cls, params, **extras)
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 197, in create_kwargs
+    cls.__name__, param_name, annotation, param.default, params, **extras
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 306, in pop_and_construct_arg
+    return construct_arg(class_name, name, popped_params, annotation, default, **extras)
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 340, in construct_arg
+    return annotation.from_params(params=popped_params, **subextras)
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 599, in from_params
+    **extras,
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 626, in from_params
+    kwargs = create_kwargs(constructor_to_inspect, cls, params, **extras)
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 197, in create_kwargs
+    cls.__name__, param_name, annotation, param.default, params, **extras
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 306, in pop_and_construct_arg
+    return construct_arg(class_name, name, popped_params, annotation, default, **extras)
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 387, in construct_arg
+    **extras,
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 340, in construct_arg
+    return annotation.from_params(params=popped_params, **subextras)
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 599, in from_params
+    **extras,
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/from_params.py", line 628, in from_params
+    return constructor_to_call(**kwargs)  # type: ignore
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/modules/token_embedders/pretrained_transformer_embedder.py", line 79, in __init__
+    **(transformer_kwargs or {}),
+  File "/data/home/lanyanyan/xiongruibin/opendebias/allennlp/common/cached_transformers.py", line 86, in get
+    **kwargs,
+  File "/data/home/lanyanyan/xiongruibin/anaconda3/envs/debias_allen/lib/python3.6/site-packages/transformers/models/auto/modeling_auto.py", line 815, in from_pretrained
+    pretrained_model_name_or_path, *model_args, config=config, **kwargs
+  File "/data/home/lanyanyan/xiongruibin/anaconda3/envs/debias_allen/lib/python3.6/site-packages/transformers/modeling_utils.py", line 1138, in from_pretrained
+    load(model_to_load, prefix=start_prefix)
+  File "/data/home/lanyanyan/xiongruibin/anaconda3/envs/debias_allen/lib/python3.6/site-packages/transformers/modeling_utils.py", line 1127, in load
+    load(child, prefix + name + ".")
+  File "/data/home/lanyanyan/xiongruibin/anaconda3/envs/debias_allen/lib/python3.6/site-packages/transformers/modeling_utils.py", line 1127, in load
+    load(child, prefix + name + ".")
+  File "/data/home/lanyanyan/xiongruibin/anaconda3/envs/debias_allen/lib/python3.6/site-packages/transformers/modeling_utils.py", line 1127, in load
+    load(child, prefix + name + ".")
+  [Previous line repeated 2 more times]
+  File "/data/home/lanyanyan/xiongruibin/anaconda3/envs/debias_allen/lib/python3.6/site-packages/transformers/modeling_utils.py", line 1123, in load
+    error_msgs,
+  File "/data/home/lanyanyan/xiongruibin/anaconda3/envs/debias_allen/lib/python3.6/site-packages/torch/nn/modules/module.py", line 982, in _load_from_state_dict
+    param.copy_(input_param)
+KeyboardInterrupt

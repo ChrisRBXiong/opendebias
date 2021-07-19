@@ -89,9 +89,13 @@ class TextPairClassification(DatasetReader):
                 raise NotImplementedError('Only support tsv, csv, and json format')
 
             line_id = 0
+            end_index = None
             if READER_DEBUG == 1:
                 step_size = 1000
-            for example in itertools.islice(example_iter, start_index, None, step_size):
+            elif READER_DEBUG == 2:
+                end_index = 1000
+
+            for example in itertools.islice(example_iter, start_index, end_index, step_size):
                 label = example[col2id(self._label_field)]
                 sentence_a = example[col2id(self._sentence_a_field)]
                 sentence_b = example[col2id(self._sentence_b_field)]

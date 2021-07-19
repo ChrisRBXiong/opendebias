@@ -12,6 +12,7 @@ from allennlp.nn.util import get_text_field_mask
 from allennlp.training.metrics import Metric
 from opendebias.modules.losses import EBDLoss
 from overrides import overrides
+from copy import deepcopy
 
 
 class EBDModelBase(Model):
@@ -34,9 +35,9 @@ class EBDModelBase(Model):
         self._bias_only_model = bias_only_model
         self._loss = ebd_loss
 
-        self._main_metrics = {} if metrics is None else metrics
-        self._bias_only_metrics = {} if metrics is None else metrics
-        self._ensemble_metrics = {} if metrics is None else metrics
+        self._main_metrics = {} if metrics is None else deepcopy(metrics)
+        self._bias_only_metrics = {} if metrics is None else deepcopy(metrics)
+        self._ensemble_metrics = {} if metrics is None else deepcopy(metrics)
 
         self._label_namespace = label_namespace
         self._namespace = namespace
@@ -90,7 +91,6 @@ class EBDModelBase(Model):
             for metric in self._ensemble_metrics.values():
                 if "logits" in ensemble_output:
                     metric(ensemble_output["logits"], kw_input["label"])
-        
         return output_dict
 
     def get_metrics(self, reset: bool = False) -> Dict[str, float]:

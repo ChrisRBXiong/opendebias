@@ -17,7 +17,7 @@ class LoadableModel(Model):
     def _load_weight_file(self, archive_file_path: str, weights_file_path: str = None):
         model = load_archive(archive_file_path, 
                              cuda_device=-1, 
-                             weights_file=weights_file).model 
+                             weights_file=weights_file_path).model 
         return model
 
 
@@ -49,6 +49,3 @@ class LoadableModel(Model):
         if self._load_weight_configs is None: return
         for config in self._load_weight_configs:
             inner(config)
-
-            
-

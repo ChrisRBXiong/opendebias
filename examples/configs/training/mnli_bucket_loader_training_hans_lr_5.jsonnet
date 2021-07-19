@@ -4,14 +4,14 @@ local hans = import '../dataset/hans.jsonnet';
   "data_loader": {
     "batch_sampler": {
       "type": "bucket",
-      "batch_size" : 3
+      "batch_size" : 32
     },
     "num_workers": 1
   },
   "validation_data_loader": {
     "batch_sampler": {
       "type": "bucket",
-      "batch_size" : 3
+      "batch_size" : 64
     },
     "num_workers": 1
   },

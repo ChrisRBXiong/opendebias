@@ -2,6 +2,7 @@ data
 pretrained
 test.py
 .vscode
+*.pyc
 **/*.pyc
 */*.pyc
 histories

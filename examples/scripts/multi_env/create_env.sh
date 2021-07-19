@@ -1,0 +1,1 @@
+python opendebias/independent_utils/eiil.py --pretrained-model-prediction-file data/bias/mnli-hans/mind-trade-bias/train.json --save-file data/bias/mnli-hans/mind-trade-bias/train-eiil-random-1010-group.json

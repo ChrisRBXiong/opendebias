@@ -124,8 +124,9 @@ class EvalEpochCallback:
                 all_labels.append(batch.pop('label')) # for hans
                 # all_labels.append(batch['label'])
                 batch_outputs = self.trainer.batch_outputs(batch, for_training=False)
-                if 'probs' in batch_outputs:
-                    all_main_probs.append(batch_outputs['probs'])
+                if 'probs' in batch_outputs or 'main_probs' in batch_outputs:
+                    key = 'main_probs' if 'main_probs' in batch_outputs else 'probs'
+                    all_main_probs.append(batch_outputs[key])
                     if self.bias_only: continue
                 elif 'bias_only_probs' in batch_outputs:
                     all_bias_probs.append(batch_outputs['bias_only_probs'])
@@ -134,6 +135,7 @@ class EvalEpochCallback:
                 if 'metadata' in batch: all_metas.extend(batch['metadata'])
         ret_metrics = self.trainer._pytorch_model.get_metrics(reset=True)
         y = torch.cat(all_labels)
+        # print(torch.cat(all_main_probs))
         if self.bias_only:
             probs = torch.cat(all_main_probs)
             cur_metrics = reader.eval(self.trainer.model.vocab, probs, y, all_metas)
