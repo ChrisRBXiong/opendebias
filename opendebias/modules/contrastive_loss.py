@@ -13,7 +13,7 @@ class ContrastiveLoss(torch.nn.Module, Registrable):
         raise NotImplementedError
 
 
-@ContrastiveLoss.register("info_nce")
+@ContrastiveLoss.register("info-nce")
 class InfoNCE(ContrastiveLoss):
     def __init__(self, tau, full_pos_denominator=False):
         super().__init__()
