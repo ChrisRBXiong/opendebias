@@ -10,3 +10,5 @@ histories
 !examples/configs
 scripts
 !examples/scripts
+*.out
+*.ipynb_checkpoints
